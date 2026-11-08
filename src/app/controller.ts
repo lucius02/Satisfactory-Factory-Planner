@@ -1,4 +1,5 @@
 /** Glue: recompute the model, geometry and layout, then redraw everything. */
+import { chooseRecipes } from '../calc/optimize';
 import { compute } from '../calc/solver';
 import { applyStaticTexts } from '../i18n';
 import { autoLayout } from '../layout/autoLayout';
@@ -18,7 +19,8 @@ export interface RecomputeOpts {
 }
 
 export function recompute(opts: RecomputeOpts = {}): void {
-  ctx.model = compute(state);
+  ctx.auto = autoRecipes();
+  ctx.model = compute({ ...state, rc: effectiveRc() });
   if (ctx.sel && !ctx.model.byKey[ctx.sel]) ctx.sel = null;
   const geo = { gap: state.gap, perRow: state.perRow, caps: ctx.model.caps };
   ctx.local = {};
@@ -47,3 +49,18 @@ export function refreshAll(opts: RecomputeOpts = {}): void {
   renderRecBtn();
   if (isRecModalOpen()) renderRecList();
 }
+
+let autoCache: { key: string; auto: Record<string, string> } | null = null;
+
+/** Best recipe per product among the unlocked ones (cached on the inputs that matter). */
+function autoRecipes(): Record<string, string> {
+  const key = JSON.stringify([
+    state.targets, state.rc, state.unlocked, state.goal, state.miner, state.purity, state.clockMode,
+    state.belt, state.pipe, state.reuse, state.dist, state.distOv, state.balSmooth,
+  ]);
+  if (autoCache?.key !== key) autoCache = { key, auto: chooseRecipes({ ...state, surplus: 'output' }) };
+  return autoCache.auto;
+}
+
+/** Recipes in use: manual choice first, then the automatic one. */
+export const effectiveRc = (): Record<string, string> => ({ ...ctx.auto, ...state.rc });

@@ -22,6 +22,8 @@ export const DEFAULT_STATE: State = {
   surplus: 'output',
   reuse: true,
   rc: {},
+  unlocked: {},
+  goal: 'raw',
   distOv: {},
   pos: {},
 };
@@ -44,6 +46,9 @@ export function normalize(raw: unknown, base: State = DEFAULT_STATE): State {
       else delete s.rc[k];
     } else if (!RECIPES[k]?.some((r) => r.name === v)) delete s.rc[k];
   }
+  // manually chosen alternates count as unlocked
+  s.unlocked ??= {};
+  for (const k in s.rc) if (RECIPES[k]?.find((r) => r.name === s.rc[k])?.alt) s.unlocked[s.rc[k]] = true;
   s.distOv ??= {};
   s.pos ??= {};
   return s;
@@ -90,7 +95,7 @@ export function replaceState(next: State): void {
 
 /** Data for the share code. */
 export function exportCode(): string {
-  const d: Record<string, unknown> = { v: 3, targets: state.targets, rc: state.rc, distOv: state.distOv, pos: state.pos };
+  const d: Record<string, unknown> = { v: 3, targets: state.targets, rc: state.rc, unlocked: state.unlocked, distOv: state.distOv, pos: state.pos };
   for (const k of SETTING_KEYS) d[k] = state[k];
   return JSON.stringify(d);
 }

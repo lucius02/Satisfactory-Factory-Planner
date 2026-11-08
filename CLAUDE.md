@@ -12,6 +12,23 @@ TypeScript + Vite + Tailwind CSS v4 (via `@tailwindcss/vite`), tests met Vitest.
 - `npm run build` — typecheck + productie-build naar `dist/`
 - `npm test` — unit tests (`tests/`)
 - `npm run typecheck`
+- `npm run electron:dev` / `npm run electron:build` — desktop-app met Electron (`electron/main.cjs`, uitvoer in `release/`)
+- `npm run tauri:dev` / `npm run tauri:build` — desktop-app met Tauri 2 (`src-tauri/`, vereist Rust; uitvoer in `src-tauri/target/release/bundle/`)
+
+Lettertypes komen uit `@fontsource/*` (gebundeld), zodat de desktop-apps offline werken. Icoon: `build/icon.svg`
+(PNG's/ICO voor Tauri opnieuw genereren met `npx tauri icon build/icon.svg`, daarna `src-tauri/icons/icon.png` naar `build/icon.png` kopiëren).
+
+## CI en releases
+- `.github/workflows/ci.yml` — bij push/PR: typecheck, tests, build, `cargo check` van `src-tauri`.
+- `.github/workflows/release.yml` — bij een tag `vX.Y.Z` (moet gelijk zijn aan `version` in `package.json`; Tauri leest
+  die versie ook): draft-release → Tauri-builds (Windows, macOS arm64/x64, Linux) met `latest.json` voor de updater →
+  Electron-builds (`Electron-*` assets) → release publiceren.
+- Release maken: versie in `package.json` ophogen, committen, `git tag v2.1.0 && git push --tags`.
+- Tauri auto-updater (`tauri-plugin-updater` + `tauri-plugin-process`): `src/app/updater.ts` checkt bij opstarten
+  `releases/latest/download/latest.json` en toont een melding. Updates zijn gesigneerd: publieke sleutel staat in
+  `src-tauri/tauri.conf.json`, de private sleutel staat lokaal in `~/.tauri/fabrieksplanner.key` (nooit committen) en
+  als GitHub-secret `TAURI_SIGNING_PRIVATE_KEY` (+ `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, leeg). Sleutel kwijt = geen updates meer.
+- Electron heeft geen auto-updater.
 
 `legacy/index.html` is de oude versie in één bestand (alleen ter referentie).
 
@@ -30,6 +47,9 @@ TypeScript + Vite + Tailwind CSS v4 (via `@tailwindcss/vite`), tests met Vitest.
   - `balancer.ts` — 1:N balancers uit 1:2/1:3 splitters, loopback voor andere priemfactoren, `balancerCount()`.
   - `extractors.ts` — miners/extractors (output begrensd door band/pijp).
   - `recipes.ts` — gekozen recept, productiediepte, alt-telling.
+  - `optimize.ts` — `chooseRecipes()`: kiest per product automatisch het beste recept uit de ontgrendelde recepten
+    (`state.unlocked`; standaardrecepten altijd beschikbaar), doel `raw`/`power`/`machines`. Handmatige keuzes (`state.rc`) blijven vast.
+    Effectieve recepten = `{ ...ctx.auto, ...state.rc }` (`effectiveRc()` in de controller).
 - `layout/geometry.ts` — `geomLocal()` legt één groep neer: invoer links-boven, uitvoer rechts-onder, meerdere rijen
   (max. per rij door instelling én bandcapaciteit), manifold (splitters in serie) of balancerboom, mergers aan de uitvoerkant.
   Levert tekenbare `parts` en `counts` (splitters/mergers/junctions). `worldGeom()` past positie/rotatie toe.

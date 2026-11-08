@@ -2,6 +2,7 @@
 import { $, ctx, groupOf } from '../app/context';
 import { recompute } from '../app/controller';
 import { suppliers, type Group } from '../calc/model';
+import { isAvailable } from '../calc/optimize';
 import { recipeSummary } from '../calc/recipes';
 import { isFluid, itemName } from '../data/items';
 import { RECIPES } from '../data/recipes';
@@ -89,9 +90,16 @@ export function renderInfo(): void {
       if (sp) users.push({ name: groupTitle(u), r: i.rate * sp.share });
     }
   const target = ctx.model.targets[g.id];
+  const manual = state.rc[g.id];
+  const autoName = ctx.auto[g.id] ?? (list.find((r) => !r.alt) ?? list[0]).name;
   const recSel =
     list.length > 1
-      ? `${h2('recipe')}<select data-act="recipe" class="mb-1">${list.map((r) => `<option value="${esc(r.name)}"${r === g.rec ? ' selected' : ''}>${r.alt ? 'ALT · ' : ''}${esc(r.name)}</option>`).join('')}</select><p class="note mt-0.5">${esc(recipeSummary(g.rec!, fmt))}</p>`
+      ? `${h2('recipe')}<select data-act="recipe" class="mb-1"><option value=""${!manual ? ' selected' : ''}>${esc(t('autoRecipe', autoName))}</option>${list
+          .map(
+            (r) =>
+              `<option value="${esc(r.name)}"${r.name === manual ? ' selected' : ''}>${r.alt ? 'ALT · ' : ''}${esc(r.name)}${isAvailable(r, state.unlocked) ? '' : ` (${t('locked')})`}</option>`,
+          )
+          .join('')}</select><p class="note mt-0.5">${esc(recipeSummary(g.rec!, fmt))}</p>`
       : '';
   const hasSolid = g.inputs.some((i) => !isFluid(i.item));
   const ov = state.distOv[g.key];
@@ -164,7 +172,8 @@ export function bindInfo(): void {
     const g = groupOf(ctx.sel);
     if (!g) return;
     if (s.dataset.act === 'recipe') {
-      state.rc[g.id] = s.value;
+      if (s.value) state.rc[g.id] = s.value;
+      else delete state.rc[g.id];
       renderRecBtn();
       recompute();
     } else if (s.dataset.act === 'dist') {

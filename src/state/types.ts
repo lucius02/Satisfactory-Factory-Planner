@@ -9,6 +9,9 @@ export type DistMode = 'manifold' | 'balancer';
 /** What happens with surplus (byproducts that are not used, overproduction). */
 export type SurplusMode = 'output' | 'sink' | 'storage';
 
+/** What the automatic recipe choice minimises. */
+export type OptimizeGoal = 'raw' | 'power' | 'machines';
+
 export interface Target {
   item: ItemId;
   rate: number;
@@ -44,8 +47,12 @@ export interface State {
   surplus: SurplusMode;
   /** Use byproducts to cover demand elsewhere in the factory. */
   reuse: boolean;
-  /** Chosen recipe name per item. */
+  /** Manually chosen recipe name per item (overrides the automatic choice). */
   rc: Record<ItemId, string>;
+  /** Alternate recipes the player has unlocked (by recipe name). */
+  unlocked: Record<string, boolean>;
+  /** What the automatic recipe choice optimises. */
+  goal: OptimizeGoal;
   /** Per production line override of `dist`. */
   distOv: Record<string, DistMode>;
   pos: Record<string, GroupPos>;
@@ -53,6 +60,6 @@ export interface State {
 
 /** Settings that are part of the share code / settings panel. */
 export const SETTING_KEYS = [
-  'miner', 'purity', 'clockMode', 'gap', 'perRow', 'floors', 'belt', 'pipe', 'dist', 'balSmooth', 'surplus', 'reuse', 'snap',
+  'miner', 'purity', 'clockMode', 'gap', 'perRow', 'floors', 'belt', 'pipe', 'dist', 'balSmooth', 'surplus', 'reuse', 'snap', 'goal',
 ] as const;
 export type SettingKey = (typeof SETTING_KEYS)[number];

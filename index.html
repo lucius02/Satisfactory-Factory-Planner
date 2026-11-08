@@ -4,12 +4,6 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Fabrieksplanner — Satisfactory calculator met plattegrond</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
     <script type="module" src="/src/main.ts"></script>
   </head>
   <body class="bg-bg text-ink">
@@ -45,6 +39,10 @@
           <div class="field"><label for="clockMode" data-i="clock"></label>
             <select id="clockMode" data-setting="clockMode">
               <option value="even" data-i="clockEven"></option><option value="fill" data-i="clockFill"></option><option value="full" data-i="clockFull"></option>
+            </select></div>
+          <div class="field"><label for="goal" data-i="goal"></label>
+            <select id="goal" data-setting="goal">
+              <option value="raw" data-i="goalRaw"></option><option value="power" data-i="goalPower"></option><option value="machines" data-i="goalMachines"></option>
             </select></div>
           <label class="check"><input type="checkbox" id="reuse" data-setting="reuse" /> <span data-i="reuse"></span></label>
         </details>
@@ -168,11 +166,13 @@
         <p class="note mb-2.5 mt-0" data-i="recDesc"></p>
         <div class="mb-2.5 flex flex-wrap items-center gap-3">
           <input type="search" id="recSearch" class="input min-w-[200px] flex-1" />
-          <label class="check"><input type="checkbox" id="recUsed" checked /> <span data-i="onlyUsed"></span></label>
+          <label class="check"><input type="checkbox" id="recUsed" /> <span data-i="onlyUsed"></span></label>
         </div>
         <div id="recList" class="max-h-[58vh] overflow-auto rounded-lg border border-line"></div>
         <div class="mt-2.5 flex items-center justify-end gap-2">
           <span class="mr-auto text-[12.5px] text-muted" id="recMsg"></span>
+          <button class="btn" id="recAllOn" data-i="allOn"></button>
+          <button class="btn" id="recAllOff" data-i="allOff"></button>
           <button class="btn" id="recStd" data-i="allStd"></button>
           <button class="btn btn-primary" id="recDone" data-i="done"></button>
         </div>

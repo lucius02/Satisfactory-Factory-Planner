@@ -6,6 +6,8 @@ export const ctx = {
   model: null as unknown as Model,
   /** Selected group key. */
   sel: null as string | null,
+  /** Automatically chosen recipe per item. */
+  auto: {} as Record<string, string>,
   view: { k: 5, tx: 60, ty: 60 },
   /** Local geometry per group key, recomputed with the model. */
   local: {} as Record<string, LocalGeom>,
