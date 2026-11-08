@@ -1,4 +1,5 @@
 import type { BeltTier, PipeTier } from '../data/logistics';
+import type { GenSpec } from '../data/generators';
 import type { ItemId } from '../data/types';
 
 export type Lang = 'nl' | 'en';
@@ -15,6 +16,14 @@ export type OptimizeGoal = 'raw' | 'power' | 'machines';
 /** flow = rows per production depth; compact = packed as tight as possible. */
 export type LayoutMode = 'flow' | 'compact';
 
+export type Page = 'factory' | 'power';
+
+/** Positions and belt waypoints of one plan (factory or power plant). */
+export interface PlanLayout {
+  pos: Record<string, GroupPos>;
+  beltOff: Record<string, [number, number]>;
+}
+
 export interface Target {
   item: ItemId;
   rate: number;
@@ -24,6 +33,8 @@ export interface GroupPos {
   x: number;
   y: number;
   rot: 0 | 1;
+  /** Mirrored: inputs on the right, outputs on the left. */
+  mirror?: 0 | 1;
   f: number;
   manual?: boolean;
 }
@@ -66,11 +77,24 @@ export interface State {
   floorW: number;
   floorL: number;
   /** Manually placed waypoint per belt connection (world metres). */
-  beltWp: Record<string, [number, number]>;
+  beltOff: Record<string, [number, number]>;
+  /** Which planner is open. `pos`/`beltOff` always belong to this page; the other page's layout is in `otherLayout`. */
+  page: Page;
+  otherLayout: PlanLayout;
+  /** Power page: generators to build. */
+  gens: GenSpec[];
+  /** Power page: also build the production chain for the fuel (otherwise it comes in as external supply). */
+  produceFuel: boolean;
+  /** Power pole tier used to connect the machines. */
+  pole: 1 | 2 | 3;
+  /** Draw the power lines between production lines on the map. */
+  showWires: boolean;
+  /** Center machines on foundations. */
+  align: boolean;
 }
 
 /** Settings that are part of the share code / settings panel. */
 export const SETTING_KEYS = [
-  'miner', 'purity', 'clockMode', 'gap', 'perRow', 'floors', 'belt', 'pipe', 'dist', 'balSmooth', 'surplus', 'reuse', 'snap', 'goal', 'layoutMode', 'floorW', 'floorL',
+  'miner', 'purity', 'clockMode', 'gap', 'perRow', 'floors', 'belt', 'pipe', 'dist', 'balSmooth', 'surplus', 'reuse', 'snap', 'goal', 'layoutMode', 'floorW', 'floorL', 'pole', 'produceFuel', 'showWires', 'align',
 ] as const;
 export type SettingKey = (typeof SETTING_KEYS)[number];

@@ -38,6 +38,7 @@ function logistics(g: Group): string {
     c.splitters ? `${c.splitters}× Splitter` : '',
     c.mergers ? `${c.mergers}× Merger` : '',
     c.junctions ? `${c.junctions}× Junction` : '',
+    c.poles ? `${c.poles}× Power Pole Mk${state.pole}` : '',
   ].filter(Boolean);
   if (!parts.length) return '';
   return `${h2('logisticsLine')}<div class="chips">${parts.map((p) => `<span class="chip">${p}</span>`).join('')}</div>`;
@@ -54,7 +55,7 @@ export function renderInfo(): void {
   const p = state.pos[g.key];
   const w = ctx.world[g.key];
   const size = `${w.W / 8} × ${w.H / 8} foundations`;
-  const acts = `<div class="mt-3 flex flex-wrap gap-1.5"><button class="btn btn-sm" data-act="rot">${t('rotate')}</button>${p.manual ? `<button class="btn btn-sm" data-act="auto">${t('backAuto')}</button>` : ''}<button class="btn btn-sm" data-act="close">${t('close')}</button></div>`;
+  const acts = `<div class="mt-3 flex flex-wrap gap-1.5"><button class="btn btn-sm" data-act="rot">${t('rotate')}</button><button class="btn btn-sm" data-act="mirror">${t('mirror')}</button>${p.manual ? `<button class="btn btn-sm" data-act="auto">${t('backAuto')}</button>` : ''}<button class="btn btn-sm" data-act="close">${t('close')}</button></div>`;
   const head = (title: string, meta: string) =>
     `<h3 class="m-0 font-head text-[21px] font-bold tracking-wide">${esc(title)}</h3><div class="mb-2.5 mt-0.5 text-[12.5px] text-muted">${meta}</div>`;
 
@@ -76,6 +77,15 @@ export function renderInfo(): void {
       <div class="chips"><span class="chip">${fmt(g.rate)}${g.id ? unit(g.id) : '/min'}</span>${extra}</div>
       ${g.fallback ? `<p class="note">${t('fallbackNote')}</p>` : ''}
       ${h2('inputs')}<ul class="list">${g.inputs.map((i) => li(`${dot(col(i.item))}${esc(itemName(i.item))}`, `${fmt(i.rate)}${unit(i.item)}`)).join('')}</ul>
+      ${logistics(g)}${floorRow(p.f)}${acts}`;
+    return;
+  }
+
+  if (g.kind === 'generator') {
+    el.innerHTML = `${head(groupTitle(g), `${g.count}× ${esc(g.bld!.n)} (${g.bld!.w}×${g.bld!.l} m) · ${size}`)}
+      <div class="chips"><span class="chip">${fmtInt(g.gen ?? 0)} MW</span><span class="chip">${g.count}× ${pct(g.clocks[0])}</span></div>
+      ${h2('inputs')}<ul class="list">${g.inputs.map((i) => li(`${dot(col(i.item))}${esc(itemName(i.item))}`, `${fmt(i.rate)}${unit(i.item)} <span class="sub">${beltFor(i.rate, i.item)}</span>`)).join('')}</ul>
+      ${g.outputs.length ? `${h2('surplus')}<ul class="list">${g.outputs.map((o) => li(`${dot(col(o.item))}${esc(itemName(o.item))}`, `${fmt(o.rate)}${unit(o.item)}`)).join('')}</ul>` : ''}
       ${logistics(g)}${floorRow(p.f)}${acts}`;
     return;
   }
@@ -141,6 +151,16 @@ export function rotateSelected(): void {
   saveState(state);
 }
 
+export function mirrorSelected(): void {
+  const p = ctx.sel ? state.pos[ctx.sel] : undefined;
+  if (!p) return;
+  p.mirror = p.mirror ? 0 : 1;
+  p.manual = true;
+  renderMap();
+  renderInfo();
+  saveState(state);
+}
+
 export function bindInfo(): void {
   const el = $('#info');
   el.addEventListener('click', (e) => {
@@ -148,6 +168,7 @@ export function bindInfo(): void {
     if (!a || a.tagName === 'SELECT' || !ctx.sel) return;
     const act = a.dataset.act;
     if (act === 'rot') rotateSelected();
+    else if (act === 'mirror') mirrorSelected();
     else if (act === 'auto') {
       delete state.pos[ctx.sel];
       recompute();

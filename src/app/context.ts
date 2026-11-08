@@ -1,5 +1,6 @@
 import type { Group, Model } from '../calc/model';
 import type { LocalGeom, WorldGeom } from '../layout/geometry';
+import type { PowerNet } from '../layout/powerNet';
 
 /** Runtime (non-persisted) state of the app. */
 export const ctx = {
@@ -10,6 +11,10 @@ export const ctx = {
   auto: {} as Record<string, string>,
   /** Layout fits within the floors / floor size. */
   fits: true,
+  /** Midpoint between the two ends of each belt (reference for its drag offset). */
+  beltMid: {} as Record<string, [number, number]>,
+  /** Power network between the production lines (filled by the map renderer). */
+  net: { edges: [], helpers: [], extraPoles: 0, wires: 0, length: 0 } as PowerNet,
   view: { k: 5, tx: 60, ty: 60 },
   /** Local geometry per group key, recomputed with the model. */
   local: {} as Record<string, LocalGeom>,

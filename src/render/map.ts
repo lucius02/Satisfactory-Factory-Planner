@@ -3,8 +3,9 @@ import { $, ctx } from '../app/context';
 import { suppliers, type Group } from '../calc/model';
 import { isFluid, itemName } from '../data/items';
 import { t } from '../i18n';
-import { worldGeom, type Pt, type WorldGeom } from '../layout/geometry';
+import { POLE_CONNECTIONS, worldGeom, type Pt, type WorldGeom } from '../layout/geometry';
 import { ortho, Router, simplify } from './router';
+import { powerNetwork } from '../layout/powerNet';
 import { state } from '../state/store';
 import { beltFor, col, esc, fmt, fmtInt, fname, hue, pct, unit } from '../util/format';
 import { groupTitle, sourceName } from '../ui/labels';
@@ -15,9 +16,9 @@ function line(pts: Pt[], c: string, w: number, dash: boolean): string {
   return `<path d="${P(pts)}" stroke="${c}" stroke-width="${w}" fill="none"${dash ? ' stroke-dasharray="1 .6"' : ''} stroke-linecap="round" stroke-linejoin="round"/>`;
 }
 
-function tag(x: number, y: number, txt: string, c: string, fs = 1.25): string {
+function tag(x: number, y: number, txt: string, c: string, fs = 1.25, vertical = false): string {
   const tw = txt.length * fs * 0.5 + 1.2;
-  return `<g><rect x="${x - tw / 2}" y="${y - fs * 0.92}" width="${tw}" height="${fs * 1.84}" rx=".5" fill="#0f1215" stroke="${c}" stroke-width=".12"/><text x="${x}" y="${y + fs * 0.36}" font-size="${fs}" text-anchor="middle" fill="${c}">${esc(txt)}</text></g>`;
+  return `<g${vertical ? ` transform="rotate(-90 ${x} ${y})"` : ''}><rect x="${x - tw / 2}" y="${y - fs * 0.92}" width="${tw}" height="${fs * 1.84}" rx=".5" fill="#0f1215" stroke="${c}" stroke-width=".12"/><text x="${x}" y="${y + fs * 0.36}" font-size="${fs}" text-anchor="middle" fill="${c}">${esc(txt)}</text></g>`;
 }
 
 function lift(pt: Pt, f: number, incoming: boolean, extra?: string): string {
@@ -57,6 +58,39 @@ function routeBelt(router: Router | null, a: Pt, da: Pt, b: Pt, db: Pt, wp: [num
   });
   pts.push(b);
   return simplify(pts);
+}
+
+function drawPole([x, y]: Pt, extra = false): string {
+  return `<rect x="${x - 0.4}" y="${y - 0.4}" width=".8" height=".8" fill="${extra ? '#fff1b3' : '#ffd34d'}" stroke="#0d0f12" stroke-width=".15"/><circle cx="${x}" cy="${y}" r="1.6" fill="none" stroke="#ffd34d" stroke-opacity=".35" stroke-width=".15"/>`;
+}
+
+/** Power lines between production lines (minimum spanning tree, ≤ 100 m per wire). */
+function drawPowerNet(cur: number): string {
+  const net = powerNetwork(
+    ctx.model.groups.map((g) => {
+      const w = ctx.world[g.key];
+      const poles = w.L.parts.filter((p) => p.t === 'pole');
+      return { key: g.key, f: w.f, poles: poles.map((p) => w.T(p.u, p.v)), used: poles.map((p) => p.used ?? 0) };
+    }),
+    POLE_CONNECTIONS[state.pole - 1],
+  );
+  ctx.net = net;
+  if (!state.showWires) return '';
+  let h = '';
+  for (const hp of net.helpers)
+    if (hp.f === cur)
+      h += `<path d="M${hp.of[0]} ${hp.of[1]}L${hp.at[0]} ${hp.at[1]}" stroke="#ffd34d" stroke-width=".2" pointer-events="none"/>` + drawPole(hp.at, true);
+  for (const e of net.edges) {
+    if (e.fa === cur && e.fb === cur) {
+      h += `<path d="M${e.a[0]} ${e.a[1]}L${e.b[0]} ${e.b[1]}" stroke="#ffd34d" stroke-opacity=".7" stroke-width=".2" fill="none" stroke-dasharray=".9 .5" pointer-events="none"/>`;
+      for (const p of e.extra) h += drawPole(p, true);
+    } else if (e.fa === cur || e.fb === cur) {
+      const p = e.fa === cur ? e.a : e.b;
+      const other = e.fa === cur ? e.fb : e.fa;
+      h += `<text x="${p[0] + 1}" y="${p[1] - 1}" font-size="1.4" fill="#ffd34d">⚡ ${other > cur ? '↑' : '↓'} ${fname(other)}</text>`;
+    }
+  }
+  return h;
 }
 
 /** Foundation lines (8 m) inside a block, so its width in foundations is easy to count. */
@@ -129,22 +163,30 @@ function drawGroup(g: Group, w: WorldGeom, ghost: boolean): string {
     const sub = `${Number.isFinite(g.ex!.per) ? g.count + '× ' : ''}${sourceName(g)}`;
     s += `<text x="${x + ww / 2}" y="${y + hh / 2 + 1.8}" font-size="${Math.min(1.2, (ww - 1) / (sub.length * 0.55)).toFixed(2)}" text-anchor="middle" fill="#aab2bc">${esc(sub)}</text>`;
     s += line([T(8, L.V - 1.6), T(8, L.V)], c, 0.6, false);
+    for (const p of L.parts) if (p.t === 'pole') s += drawPole(T(p.u, p.v));
   } else {
     for (const p of L.parts) {
       if (p.t === 'belt') s += line(p.pts.map(([u, v]) => T(u, v)), col(p.item), p.w, isFluid(p.item));
       else if (p.t === 'loop')
         s += `<path d="${P(p.pts.map(([u, v]) => T(u, v)))}" stroke="${col(p.item)}" stroke-width=".35" fill="none" stroke-dasharray=".8 .5" marker-end="url(#arr)"/>`;
     }
-    for (const p of L.parts) if (p.t === 'split' || p.t === 'merge' || p.t === 'junc') s += drawNode(w, p.u, p.v, p.t, p.item);
+    for (const p of L.parts) {
+      if (p.t === 'split' || p.t === 'merge' || p.t === 'junc') s += drawNode(w, p.u, p.v, p.t, p.item);
+      else if (p.t === 'pole') {
+        s += drawPole(T(p.u, p.v));
+      }
+    }
     const bd = L.bld!;
     for (const m of L.machines) {
-      const a = T(m.u, m.v);
-      const bw = w.rot ? m.l : m.w;
-      const bh = w.rot ? m.w : m.l;
+      const c1 = T(m.u, m.v);
+      const c2 = T(m.u + m.w, m.v + m.l);
+      const a: Pt = [Math.min(c1[0], c2[0]), Math.min(c1[1], c2[1])];
+      const bw = Math.abs(c2[0] - c1[0]);
+      const bh = Math.abs(c2[1] - c1[1]);
       s += `<rect x="${a[0]}" y="${a[1]}" width="${bw}" height="${bh}" rx=".4" fill="${bd.c}" fill-opacity=".22" stroke="${bd.c}" stroke-width=".25"/>`;
       const fs = Math.min(1.3, (bw - 0.8) / (bd.n.length * 0.6));
       s += `<text x="${a[0] + bw / 2}" y="${a[1] + bh / 2 - 0.2}" font-size="${fs.toFixed(2)}" text-anchor="middle" fill="#d8d4cc">${esc(bd.n)}</text>`;
-      if (g.kind === 'machine')
+      if (g.kind === 'machine' || g.kind === 'generator')
         s += `<text x="${a[0] + bw / 2}" y="${a[1] + bh / 2 + 1.5}" font-size="${Math.min(1.4, bw / 5).toFixed(2)}" text-anchor="middle" fill="${m.clock < 0.999 ? '#ffb85c' : '#9aa3ad'}" font-family="JetBrains Mono,monospace">${pct(m.clock)}</text>`;
     }
   }
@@ -152,6 +194,7 @@ function drawGroup(g: Group, w: WorldGeom, ghost: boolean): string {
   if (g.kind === 'source') title = `${itemName(g.id)} · ${fmt(g.rate)}${unit(g.id)}`;
   else if (g.kind === 'sink') title = `AWESOME Sink · ${g.count}× · ${fmtInt(g.sinkPoints ?? 0)} ${t('pointsMin')}`;
   else if (g.kind === 'storage') title = `${t('storageBlock')}: ${itemName(g.id)} · ${fmt(g.rate)}${unit(g.id)}`;
+  else if (g.kind === 'generator') title = `${groupTitle(g)} · ${fmtInt(g.gen ?? 0)} MW · ${g.count}×`;
   else title = `${groupTitle(g)} · ${fmt(g.rate)}${unit(g.id)} · ${g.count}× ${g.bld!.n}`;
   s += `<text x="${w.x + 0.3}" y="${w.y - 0.9}" font-size="1.9" font-weight="600" fill="${ctx.sel === g.key ? '#ffb85c' : '#e8e4db'}">${esc(title)}</text>`;
   return s + '</g>';
@@ -219,7 +262,16 @@ export function renderMap(opts: { fast?: boolean } = {}): void {
     });
   }
   const boxes = model.groups.filter((g) => onCur(g)).map((g) => ({ x: WG[g.key].x, y: WG[g.key].y, w: WG[g.key].W, h: WG[g.key].H }));
-  const cacheKey = JSON.stringify([boxes, jobs.map((j) => [j.key, j.a, j.b, state.beltWp[j.key]])]);
+  // a moved belt keeps its drag point relative to the middle between its two ends, so it moves along with the blocks
+  const wpOf = (j: (typeof jobs)[number]): [number, number] | undefined => {
+    const off = state.beltOff[j.key];
+    const mid: Pt = [(j.a[0] + j.b[0]) / 2, (j.a[1] + j.b[1]) / 2];
+    ctx.beltMid[j.key] = mid;
+    return off ? [mid[0] + off[0], mid[1] + off[1]] : undefined;
+  };
+  const wps: Record<string, [number, number] | undefined> = {};
+  for (const j of jobs) wps[j.key] = wpOf(j);
+  const cacheKey = JSON.stringify([boxes, jobs.map((j) => [j.key, j.a, j.b, wps[j.key]])]);
   let routed: Record<string, Pt[]>;
   if (!opts.fast && routeCache?.key === cacheKey) routed = routeCache.routes;
   else {
@@ -227,7 +279,7 @@ export function renderMap(opts: { fast?: boolean } = {}): void {
     const router = opts.fast ? null : new Router(boxes, jobs.flatMap((j) => [j.a, j.b]));
     // long connections first, they need the free channels most
     const sorted = [...jobs].sort((x, y) => Math.abs(y.a[0] - y.b[0]) + Math.abs(y.a[1] - y.b[1]) - (Math.abs(x.a[0] - x.b[0]) + Math.abs(x.a[1] - x.b[1])));
-    for (const j of sorted) routed[j.key] = routeBelt(router, j.a, j.da, j.b, j.db, state.beltWp[j.key], ((hue(j.item) % 5) - 2) * 1.3);
+    for (const j of sorted) routed[j.key] = routeBelt(router, j.a, j.da, j.b, j.db, wps[j.key], ((hue(j.item) % 5) - 2) * 1.3);
     if (!opts.fast) routeCache = { key: cacheKey, routes: routed };
   }
   for (const j of jobs) conns.push({ key: j.key, item: j.item, rate: j.rate, pts: routed[j.key], label: j.label });
@@ -251,8 +303,10 @@ export function renderMap(opts: { fast?: boolean } = {}): void {
     }
     const mid: Pt = [(pts[bi][0] + pts[bi - 1][0]) / 2, (pts[bi][1] + pts[bi - 1][1]) / 2];
     if (c.label) {
-      labels += tag(mid[0], mid[1] - 1.6, `${itemName(c.item)} · ${fmt(c.rate)}${unit(c.item)} · ${beltFor(c.rate, c.item)}`, col_);
-      const wp = state.beltWp[c.key];
+      const vertical = Math.abs(pts[bi][0] - pts[bi - 1][0]) < 1e-6;
+      const txt = `${itemName(c.item)} · ${fmt(c.rate)}${unit(c.item)} · ${beltFor(c.rate, c.item)}`;
+      labels += vertical ? tag(mid[0] - 1.6, mid[1], txt, col_, 1.25, true) : tag(mid[0], mid[1] - 1.6, txt, col_);
+      const wp = wps[c.key];
       const hp = wp ?? mid;
       handles += `<circle class="belt-handle${wp ? ' moved' : ''}" data-belt="${esc(c.key)}" cx="${hp[0]}" cy="${hp[1]}" r="1.1" fill="#0d0f12" stroke="${col_}" stroke-width=".35"><title>${esc(t('beltHint'))}</title></circle>`;
     }
@@ -280,7 +334,7 @@ export function renderMap(opts: { fast?: boolean } = {}): void {
   }
 
   for (const g of model.groups) if (onCur(g)) h += drawGroup(g, WG[g.key], false);
-  $('#world').innerHTML = floorFrame() + h + labels + lifts + handles;
+  $('#world').innerHTML = floorFrame() + h + drawPowerNet(cur) + labels + lifts + handles;
   applyView();
 }
 

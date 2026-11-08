@@ -112,3 +112,22 @@ describe('balancer', () => {
     expect([5, 7, 10, 13, 17].map(smoothUp)).toEqual([6, 8, 12, 16, 18]);
   });
 });
+
+describe('generators', () => {
+  it('coal generators: fuel, water and output', () => {
+    const m = plan({ gens: [{ gen: 'coal', fuel: 'coal', mode: 'count', value: 8 }] });
+    const g = m.byKey['g:0'];
+    expect(g.gen).toBeCloseTo(600);
+    expect(m.byKey['s:coal'].rate).toBeCloseTo(120);
+    expect(m.byKey['s:water'].rate).toBeCloseTo(360);
+  });
+  it('MW target and fuel production chain', () => {
+    const m = plan({ gens: [{ gen: 'fuel', fuel: 'fuel', mode: 'mw', value: 1000 }] });
+    expect(m.byKey['g:0'].count).toBe(4);
+    expect(m.byKey['m:fuel'].rate).toBeCloseTo(80);
+  });
+  it('nuclear waste ends up as surplus', () => {
+    const m = plan({ gens: [{ gen: 'nuclear', fuel: 'uranium-fuel-rod', mode: 'count', value: 1 }], external: [{ item: 'uranium-fuel-rod', rate: 0.2 }] });
+    expect(m.left['uranium-waste']).toBeCloseTo(10);
+  });
+});

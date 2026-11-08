@@ -1,4 +1,5 @@
 import { BUILDINGS, POWER_EXP } from '../data/buildings';
+import { GENERATORS, genFuel, type GenSpec } from '../data/generators';
 import { isFluid, ITEMS } from '../data/items';
 import { beltCap, LOGISTICS, pipeCap } from '../data/logistics';
 import { canSink, SINK_POINTS } from '../data/sinkPoints';
@@ -9,7 +10,7 @@ import { extractorFor } from './extractors';
 import type { Group, Model, Supply } from './model';
 import { chosenRecipe, makeDepth } from './recipes';
 
-export type PlanInput = Pick<
+export type PlanInput = { gens?: GenSpec[] } & Pick<
   State,
   'targets' | 'external' | 'rc' | 'miner' | 'purity' | 'clockMode' | 'belt' | 'pipe' | 'reuse' | 'surplus' | 'dist' | 'distOv' | 'balSmooth'
 >;
@@ -40,6 +41,25 @@ export function compute(p: PlanInput): Model {
   const EXT: Record<ItemId, number> = {};
   for (const e of p.external ?? []) if (e.rate > 0) EXT[e.item] = (EXT[e.item] ?? 0) + e.rate;
 
+  // generators: fixed demand for fuel and water
+  const GD: Record<ItemId, number> = {};
+  const genGroups: Group[] = [];
+  (p.gens ?? []).forEach((spec, i) => {
+    const G = GENERATORS[spec.gen];
+    if (!G || !(spec.value > 0)) return;
+    const f = genFuel(spec.gen, spec.fuel);
+    const exact = spec.mode === 'mw' ? spec.value / G.mw : spec.value;
+    const count = Math.max(1, Math.ceil(exact - 1e-6));
+    const inputs = [{ item: f.item, rate: f.rate * exact }];
+    if (G.water) inputs.push({ item: 'water', rate: G.water * exact });
+    for (const x of inputs) GD[x.item] = (GD[x.item] ?? 0) + x.rate;
+    genGroups.push({
+      key: `g:${i}`, id: f.item, kind: 'generator', bld: { n: G.n, w: G.w, l: G.l, mw: 0, c: G.c }, rate: G.mw * exact,
+      exact, count, clocks: Array(count).fill(exact / count), maxClock: 1, power: 0, gen: G.mw * exact, inputs,
+      outputs: Object.entries(f.waste ?? {}).map(([item, r]) => ({ item, rate: r * exact })), dist: 'manifold',
+    });
+  });
+
   const maxClockOf = (r: Recipe): { mc: number; limit?: ItemId } => {
     let mc = 1;
     let limit: ItemId | undefined;
@@ -64,6 +84,7 @@ export function compute(p: PlanInput): Model {
 
   const flows = (x: Record<ItemId, number>) => {
     const demand: Record<ItemId, number> = { ...T };
+    for (const k in GD) demand[k] = (demand[k] ?? 0) + GD[k];
     const byp: Record<ItemId, number> = {};
     for (const id in x) {
       const r = R(id)!;
@@ -150,6 +171,11 @@ export function compute(p: PlanInput): Model {
       outputs, dist: hasSolidInput(r) ? distOf(id) : 'manifold',
     });
     for (const o of outputs) addSupply(o.item, key, o.rate);
+  }
+
+  for (const g of genGroups) {
+    groups.push(g);
+    for (const o of g.outputs) addSupply(o.item, g.key, o.rate);
   }
 
   const left: Record<ItemId, number> = {};

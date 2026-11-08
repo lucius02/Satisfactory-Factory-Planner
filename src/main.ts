@@ -12,11 +12,13 @@ import { checkForUpdates } from './app/updater';
 import { bindInfo } from './ui/info';
 import { bindMap } from './ui/mapEvents';
 import { bindPickers } from './ui/picker';
+import { bindPower } from './ui/power';
 import { bindRecipesModal } from './ui/recipesModal';
 import { bindShareModal } from './ui/shareModal';
 import { bindSidebar } from './ui/sidebar';
 
 bindPickers();
+bindPower();
 bindSidebar();
 bindInfo();
 bindMap();

@@ -68,7 +68,8 @@ export function autoLayout(
 
   // ---- order: by production depth, then barycentre of suppliers / consumers
   const maxDepth = Math.max(0, ...gs.filter((g) => g.kind === 'machine').map((g) => model.depth(g.id)));
-  const tierOf = (g: Group) => (g.kind === 'source' ? 0 : g.kind === 'machine' ? model.depth(g.id) : maxDepth + 1);
+  const tierOf = (g: Group) =>
+    g.kind === 'source' ? 0 : g.kind === 'machine' ? model.depth(g.id) : g.kind === 'generator' ? maxDepth + 1 : maxDepth + 2;
   const tiers: Record<number, Group[]> = {};
   for (const g of auto) (tiers[tierOf(g)] ??= []).push(g);
   const order = Object.keys(tiers).map(Number).sort((a, b) => a - b);
@@ -157,6 +158,21 @@ export function autoLayout(
       x = r.x + w + H_GAP;
     }
     yF[f] += h + V_GAP;
+  }
+
+  // inputs on the side of the suppliers: mirror a group when its suppliers lie to the right
+  const center = (g: Group) => {
+    const p = pos[g.key];
+    const L = geom(g);
+    return p.x + (p.rot ? L.V : L.U) / 2;
+  };
+  const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+  for (const g of auto) {
+    const c = center(g);
+    const sup = avg(g.inputs.flatMap((i) => suppliers(model, i.item).map((s) => center(s.g))));
+    const con = avg(g.outputs.flatMap((o) => (consumers[o.item] ?? []).map(center)));
+    const mirror = sup != null ? sup > c + 4 : con != null ? con < c - 4 : false;
+    pos[g.key].mirror = mirror ? 1 : 0;
   }
   return fits;
 }

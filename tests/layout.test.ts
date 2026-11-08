@@ -52,3 +52,49 @@ describe('Router', () => {
     expect(path.every(([x, y]) => !(x > 10 && x < 30 && y > 0 && y < 40))).toBe(true);
   });
 });
+
+describe('powerNetwork', () => {
+  it('connects all lines with the shortest wires and adds poles every 100 m', async () => {
+    const { powerNetwork } = await import('../src/layout/powerNet');
+    const net = powerNetwork([
+      { key: 'a', f: 0, poles: [[0, 0]] },
+      { key: 'b', f: 0, poles: [[50, 0]] },
+      { key: 'c', f: 0, poles: [[300, 0], [60, 10]] },
+    ]);
+    expect(net.edges).toHaveLength(2);
+    expect(net.extraPoles).toBe(0);
+    const far = powerNetwork([
+      { key: 'a', f: 0, poles: [[0, 0]] },
+      { key: 'b', f: 0, poles: [[250, 0]] },
+    ]);
+    expect(far.extraPoles).toBe(2);
+    expect(far.wires).toBe(3);
+  });
+});
+
+describe('foundation alignment', () => {
+  it('centers 1-foundation machines (Constructor) on a foundation', () => {
+    const g = model.groups.find((x) => x.bld?.n === 'Constructor')!;
+    const L = geomLocal(g, { gap: 2, perRow: 8, caps: model.caps, align: true });
+    for (const m of L.machines) {
+      expect((m.u + m.w / 2) % 8).toBeCloseTo(4);
+      expect((m.v + m.l / 2) % 8).toBeCloseTo(0); // 10 m long → 2 foundations, centered on the line between them
+    }
+    expect(L.U % 8).toBe(0);
+  });
+});
+
+describe('pole capacity', () => {
+  it('adds a helper pole when a pole has no free connections', async () => {
+    const { powerNetwork } = await import('../src/layout/powerNet');
+    const net = powerNetwork(
+      [
+        { key: 'a', f: 0, poles: [[0, 0]], used: [4] },
+        { key: 'b', f: 0, poles: [[20, 0]], used: [1] },
+      ],
+      4,
+    );
+    expect(net.helpers).toHaveLength(1);
+    expect(net.extraPoles).toBe(1);
+  });
+});

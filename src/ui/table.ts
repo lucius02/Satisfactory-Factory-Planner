@@ -37,8 +37,8 @@ export function renderTable(): void {
     const inputs = g.inputs.map((i) => `${fmt(i.rate)}${unit(i.item)} ${esc(itemName(i.item))}`).join('<br>') || '–';
     const belts = g.inputs.map((i) => beltFor(i.rate, i.item)).join('<br>') || '–';
     if (g.kind !== 'machine') {
-      const what = g.kind === 'sink' ? `${fmtInt(g.sinkPoints ?? 0)} ${t('pointsMin')}` : t('storageBlock');
-      h += `<tr class="text-muted"><td>${g.kind === 'sink' ? '' : dot(col(g.id))}${esc(groupTitle(g))}<br><span class="text-xs">${what}</span></td><td class="n">${fmt(g.rate)}${g.id ? unit(g.id) : '/min'}</td><td>${esc(g.bld!.n)}</td><td class="n">${g.count}</td><td>–</td><td>${inputs}</td><td>${belts}</td><td class="n">${fmt(g.power)} MW</td>${fc(g)}</tr>`;
+      const what = g.kind === 'generator' ? `${fmtInt(g.gen ?? 0)} MW` : g.kind === 'sink' ? `${fmtInt(g.sinkPoints ?? 0)} ${t('pointsMin')}` : t('storageBlock');
+      h += `<tr class="text-muted"><td>${g.kind === 'sink' ? '' : dot(col(g.id))}${esc(groupTitle(g))}<br><span class="text-xs">${what}</span></td><td class="n">${g.kind === 'generator' ? `${fmtInt(g.gen ?? 0)} MW` : `${fmt(g.rate)}${g.id ? unit(g.id) : '/min'}`}</td><td>${esc(g.bld!.n)}</td><td class="n">${g.count}</td><td>–</td><td>${inputs}</td><td>${belts}</td><td class="n">${fmt(g.power)} MW</td>${fc(g)}</tr>`;
       continue;
     }
     const multi = RECIPES[g.id].length > 1;

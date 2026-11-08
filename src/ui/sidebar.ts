@@ -85,8 +85,12 @@ export function renderOverview(): void {
   warn.textContent = msgs.join(' ');
 
   const power = gs.reduce((s, g) => s + g.power, 0);
+  const gen = gs.reduce((s, g) => s + (g.gen ?? 0), 0);
   $('#sPower').textContent = fmtInt(power) + ' MW';
-  $('#sMachines').textContent = String(machines.reduce((s, g) => s + g.count, 0));
+  $('#genStat').hidden = $('#netStat').hidden = !gen;
+  $('#sGen').textContent = fmtInt(gen) + ' MW';
+  $('#sNet').textContent = (gen - power >= 0 ? '+' : '') + fmtInt(gen - power) + ' MW';
+  $('#sMachines').textContent = String(gs.filter((g) => g.kind === 'machine' || g.kind === 'generator').reduce((s, g) => s + g.count, 0));
   $('#sGroups').textContent = String(machines.length);
   const b = bounds(false);
   const F = state.floors || 1;
@@ -133,19 +137,24 @@ export function renderOverview(): void {
       .map(([n, v]) => li(`${dot(v.c)}${esc(n)} <span class="sub">${v.size}</span>`, `${v.n}×`))
       .join('') || '<li class="sub">–</li>';
 
-  const tot = { splitters: 0, mergers: 0, junctions: 0 };
+  const tot = { splitters: 0, mergers: 0, junctions: 0, poles: 0, wires: 0 };
   for (const g of gs) {
     const c = ctx.local[g.key]?.counts;
     if (!c) continue;
     tot.splitters += c.splitters;
     tot.mergers += c.mergers;
     tot.junctions += c.junctions;
+    tot.poles += c.poles;
+    tot.wires += c.wires;
   }
+  const net = ctx.net;
   const sink = model.byKey['k:sink'];
   $('#logList').innerHTML =
     li(`${t('splitters')} <span class="sub">4×4 m</span>`, `${tot.splitters}×`) +
     li(`${t('mergers')} <span class="sub">4×4 m</span>`, `${tot.mergers}×`) +
     (tot.junctions ? li(t('junctions'), `${tot.junctions}×`) : '') +
+    li(`Power Pole Mk${state.pole}${net.extraPoles ? ` <span class="sub">${t('polesExtra', net.extraPoles)}</span>` : ''}`, `${tot.poles + net.extraPoles}×`) +
+    li(`${t('powerLines')} <span class="sub">${t('wireLen', fmtInt(net.length))}</span>`, `${tot.wires + net.wires}×`) +
     li(t('beltTier'), `${t('belt')}${state.belt} · ${t('pipe')}${state.pipe}`) +
     (sink ? li(t('sinkPts'), `${fmtInt(sink.sinkPoints ?? 0)} ${t('pointsMin')}`) : '');
 }

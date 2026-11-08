@@ -3,7 +3,7 @@ import { $, ctx } from '../app/context';
 import { recompute } from '../app/controller';
 import { applyView, fitView, renderMap, zoomAt } from '../render/map';
 import { saveState, state } from '../state/store';
-import { renderInfo, rotateSelected } from './info';
+import { mirrorSelected, renderInfo, rotateSelected } from './info';
 import { renderOverview } from './sidebar';
 
 type Drag =
@@ -58,7 +58,8 @@ export function bindMap(): void {
     if (drag.mode === 'belt') {
       const [x, y] = toWorld(e);
       const gs = e.shiftKey ? 1 : 2;
-      state.beltWp[drag.key] = [Math.round(x / gs) * gs, Math.round(y / gs) * gs];
+      const mid = ctx.beltMid[drag.key] ?? [0, 0];
+      state.beltOff[drag.key] = [Math.round((x - mid[0]) / gs) * gs, Math.round((y - mid[1]) / gs) * gs];
       renderMap({ fast: true });
       return;
     }
@@ -99,7 +100,7 @@ export function bindMap(): void {
   svg.addEventListener('dblclick', (e) => {
     const belt = (e.target as Element).closest<SVGElement>('[data-belt]');
     if (!belt) return;
-    delete state.beltWp[belt.dataset.belt!];
+    delete state.beltOff[belt.dataset.belt!];
     saveState(state);
     renderMap();
   });
@@ -124,6 +125,7 @@ export function bindMap(): void {
   document.addEventListener('keydown', (e) => {
     if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName ?? '')) return;
     if (e.key === 'r' || e.key === 'R') rotateSelected();
+    if (e.key === 'm' || e.key === 'M') mirrorSelected();
     if (e.key === 'Escape') {
       ctx.sel = null;
       renderMap();

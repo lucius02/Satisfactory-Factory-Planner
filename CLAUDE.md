@@ -38,6 +38,7 @@ Lettertypes komen uit `@fontsource/*` (gebundeld), zodat de desktop-apps offline
   - `items.ts` — `ITEMS`, `FLUIDS`, grondstoffen (`raw`). `tier` = groep in de keuzelijst (6 = tier 0–6, 7, 8, 9).
   - `recipes.ts` — `RECIPES[itemId]`; helpers `rec()` (standaard) en `A()` (alternate). `out` = hoofdproduct + bijproducten.
   - `logistics.ts` — bandcapaciteit (`BELTS` Mk1–6), pijpen (`PIPES` Mk1–2), maten van splitter/merger/sink/opslag.
+  - `generators.ts` — `GENERATORS` (Biomass Burner, Coal, Fuel, Nuclear): maat, MW, water, brandstoffen en afval; `GenSpec`.
   - `sinkPoints.ts` — AWESOME Sink-punten per item (ontbreekt = kan niet gesinkt worden).
 - `calc/` — pure rekenlogica (geen DOM, getest).
   - `solver.ts` — `compute(input)`: fixed-point solver van doelen naar grondstoffen; externe aanvoer (`external`, groep `x:item`) dekt eerst vraag af; bijproducten hergebruiken (optioneel),
@@ -51,11 +52,21 @@ Lettertypes komen uit `@fontsource/*` (gebundeld), zodat de desktop-apps offline
     Effectieve recepten = `{ ...ctx.auto, ...state.rc }` (`effectiveRc()` in de controller).
 - `layout/geometry.ts` — `geomLocal()` legt één groep neer: invoer links-boven, uitvoer rechts-onder, meerdere rijen
   (max. per rij door instelling én bandcapaciteit), manifold (splitters in serie) of balancerboom, mergers aan de uitvoerkant.
+  `align` (standaard aan) zet elke machine midden op hele foundations. `GroupPos.mirror` spiegelt een blok (invoer rechts);
+  de auto-indeling spiegelt als de leveranciers rechts liggen.
   Levert tekenbare `parts` en `counts` (splitters/mergers/junctions). `worldGeom()` past positie/rotatie toe.
 - `layout/autoLayout.ts` — `flow` (rijen per productiediepte) of `compact` (shelf-packing), barycentrum-sortering,
   max. verdiepingsgrootte (`floorW`×`floorL` foundations), verdiepingen; handmatig geplaatste blokken zijn obstakels.
 - `render/router.ts` — A*-bandrouter op een raster van 2 m om blokken heen (weinig bochten, niet over andere banden).
-  Waypoints per verbinding in `state.beltWp` (versleepbaar bolletje op de band). Tijdens slepen snelle route, bij loslaten A*.
+  Sleeppunt per verbinding in `state.beltOff`, relatief t.o.v. het midden tussen beide band-uiteinden (beweegt mee met de blokken).
+  Tijdens slepen snelle route, bij loslaten A*. Labels langs verticale banden staan verticaal.
+- Twee pagina's: `state.page` = `factory` of `power`. `state.pos`/`state.beltWp` horen altijd bij de open pagina, de andere
+  staat in `state.otherLayout` (`switchPage()` wisselt ze). `planInput()` in de controller bouwt de solver-invoer per pagina;
+  op de stroompagina worden generatoren (`gens`, groep `g:i`, kind `generator`, `gen` = MW) als vaste vraag naar brandstof/water
+  meegerekend, met `produceFuel` uit = brandstof als externe aanvoer. `ui/power.ts` = generatorenpaneel.
+- Power poles: `state.pole` (Mk1–3, 4/7/10 aansluitingen); `geomLocal()` plaatst per rij (en bij miners/extractors) één pole per
+  (aansluitingen − 2) machines. `layout/powerNet.ts` verbindt alle lijnen met een minimum spanning tree, kabels max. 100 m
+  (tussenpoles), verdiepingshoogte 8 m; een volle pole (`used` = aansluitingen in gebruik) krijgt een hulppole ernaast; getekend in `render/map.ts` (`state.showWires`), resultaat in `ctx.net`.
 - `ui/picker.ts` — productkiezer en externe aanvoer (zoekbalk + checkboxlijst, alfabetisch).
 - `render/map.ts` — SVG in wereldcoördinaten (1 eenheid = 1 meter), pan/zoom via één `matrix()`.
 - `ui/` — zijbalk, tabel, infopaneel, receptenvenster, deelvenster, kaart-events.

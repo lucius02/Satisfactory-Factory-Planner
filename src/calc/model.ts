@@ -7,7 +7,7 @@ export interface Flow {
   rate: number;
 }
 
-export type GroupKind = 'machine' | 'source' | 'sink' | 'storage';
+export type GroupKind = 'machine' | 'source' | 'sink' | 'storage' | 'generator';
 
 /** One production line (or raw source, sink, storage block) on the map. */
 export interface Group {
@@ -34,6 +34,8 @@ export interface Group {
   outputs: Flow[];
   dist: DistMode;
   ex?: Extractor;
+  /** generator: MW produced. */
+  gen?: number;
   /** source: supplied from outside the factory. */
   external?: boolean;
   /** sink: points per minute. */

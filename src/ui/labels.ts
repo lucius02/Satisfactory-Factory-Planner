@@ -5,6 +5,7 @@ import { t } from '../i18n';
 /** Display name of a group (production line, source, sink, storage). */
 export function groupTitle(g: Group): string {
   if (g.kind === 'sink') return 'AWESOME Sink';
+  if (g.kind === 'generator') return `${g.bld!.n} (${itemName(g.id)})`;
   return itemName(g.id);
 }
 

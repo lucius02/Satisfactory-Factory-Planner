@@ -20,12 +20,25 @@
           </div>
         </div>
 
-        <section class="side-section">
+        <div class="flex gap-1 border-b border-line px-[18px] py-2.5">
+          <button class="tab-btn flex-1" data-pagebtn="factory" data-i="pageFactory"></button>
+          <button class="tab-btn flex-1" data-pagebtn="power" data-i="pagePower"></button>
+        </div>
+
+        <section class="side-section" data-page="power">
+          <h2 class="h2" data-i="powerH"></h2>
+          <div id="gens"></div>
+          <button class="btn btn-sm" id="addGen" data-i="addGen"></button>
+          <label class="check mt-3"><input type="checkbox" id="produceFuel" data-setting="produceFuel" /> <span data-i="produceFuel"></span></label>
+          <p class="note" data-i="powerHelp"></p>
+        </section>
+
+        <section class="side-section" data-page="factory">
           <h2 class="h2" data-i="whatMake"></h2>
           <div id="targets"></div>
         </section>
 
-        <details class="side-section group">
+        <details class="side-section group" data-page="factory">
           <summary class="h2 summary" data-i="externalH"></summary>
           <p class="note mt-0 mb-2" data-i="externalHelp"></p>
           <div id="external"></div>
@@ -63,6 +76,11 @@
             <select id="pipe" data-setting="pipe" data-num>
               <option value="1">Mk1 · 300 m³/min</option><option value="2">Mk2 · 600 m³/min</option>
             </select></div>
+          <div class="field"><label for="pole" data-i="poleTier"></label>
+            <select id="pole" data-setting="pole" data-num>
+              <option value="1">Power Pole Mk1 · 4</option><option value="2">Power Pole Mk2 · 7</option><option value="3">Power Pole Mk3 · 10</option>
+            </select></div>
+          <label class="check"><input type="checkbox" id="showWires" data-setting="showWires" /> <span data-i="showWires"></span></label>
           <div class="field"><label for="dist" data-i="dist"></label>
             <select id="dist" data-setting="dist">
               <option value="manifold" data-i="distManifold"></option><option value="balancer" data-i="distBalancer"></option>
@@ -89,6 +107,7 @@
           <div class="field"><label for="floorW" data-i="floorSize"></label>
             <div class="flex items-center gap-1"><input type="number" id="floorW" data-setting="floorW" data-num min="0" step="1" /><span class="text-muted">×</span><input type="number" id="floorL" data-setting="floorL" data-num min="0" step="1" /></div></div>
           <p class="note mt-0 mb-2" data-i="floorSizeHelp"></p>
+          <label class="check"><input type="checkbox" id="align" data-setting="align" /> <span data-i="align"></span></label>
           <div class="field"><label for="gap" data-i="gap"></label>
             <select id="gap" data-setting="gap" data-num>
               <option value="0">0 m</option><option value="1">1 m</option><option value="2">2 m</option><option value="4">4 m</option>
@@ -111,6 +130,8 @@
           <p class="mb-2 text-[12.5px] text-bad" id="warn" hidden></p>
           <div class="mb-3 grid grid-cols-2 gap-2">
             <div class="stat"><small data-i="power"></small><b id="sPower">–</b></div>
+            <div class="stat" id="genStat" hidden><small data-i="generated"></small><b id="sGen">–</b></div>
+            <div class="stat" id="netStat" hidden><small data-i="netPower"></small><b id="sNet">–</b></div>
             <div class="stat"><small data-i="machines"></small><b id="sMachines">–</b></div>
             <div class="stat"><small data-i="area"></small><b id="sArea">–</b></div>
             <div class="stat"><small data-i="lines"></small><b id="sGroups">–</b></div>

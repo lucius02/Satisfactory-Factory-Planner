@@ -1,3 +1,4 @@
+import { GENERATORS } from '../data/generators';
 import { ITEMS } from '../data/items';
 import { RECIPES } from '../data/recipes';
 import { SETTING_KEYS, type State } from './types';
@@ -31,7 +32,14 @@ export const DEFAULT_STATE: State = {
   layoutMode: 'flow',
   floorW: 0,
   floorL: 0,
-  beltWp: {},
+  beltOff: {},
+  page: 'factory',
+  otherLayout: { pos: {}, beltOff: {} },
+  gens: [{ gen: 'coal', fuel: 'coal', mode: 'count', value: 8 }],
+  produceFuel: true,
+  pole: 2,
+  showWires: true,
+  align: true,
 };
 
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
@@ -58,7 +66,11 @@ export function normalize(raw: unknown, base: State = DEFAULT_STATE): State {
   s.external = (Array.isArray(s.external) ? s.external : [])
     .filter((x) => x && ITEMS[x.item])
     .map((x) => ({ item: x.item, rate: Math.max(0, Number(x.rate) || 0) }));
-  s.beltWp ??= {};
+  s.beltOff ??= {};
+  s.otherLayout ??= { pos: {}, beltOff: {} };
+  s.otherLayout.pos ??= {};
+  s.otherLayout.beltOff ??= {};
+  s.gens = (Array.isArray(s.gens) ? s.gens : []).filter((g) => g && GENERATORS[g.gen]);
   s.distOv ??= {};
   s.pos ??= {};
   return s;
@@ -105,7 +117,7 @@ export function replaceState(next: State): void {
 
 /** Data for the share code. */
 export function exportCode(): string {
-  const d: Record<string, unknown> = { v: 3, targets: state.targets, rc: state.rc, unlocked: state.unlocked, external: state.external, beltWp: state.beltWp, distOv: state.distOv, pos: state.pos };
+  const d: Record<string, unknown> = { v: 3, targets: state.targets, rc: state.rc, unlocked: state.unlocked, external: state.external, beltOff: state.beltOff, page: state.page, otherLayout: state.otherLayout, gens: state.gens, distOv: state.distOv, pos: state.pos };
   for (const k of SETTING_KEYS) d[k] = state[k];
   return JSON.stringify(d);
 }
@@ -114,4 +126,15 @@ export function importCode(code: string): State {
   const d = JSON.parse(code);
   if (!d || !Array.isArray(d.targets)) throw new Error('invalid');
   return normalize({ ...d, lang: state.lang, cur: 0 });
+}
+
+/** Switch between the factory and power planner; each keeps its own layout. */
+export function switchPage(page: State['page']): void {
+  if (state.page === page) return;
+  const cur = { pos: state.pos, beltOff: state.beltOff };
+  state.pos = state.otherLayout.pos;
+  state.beltOff = state.otherLayout.beltOff;
+  state.otherLayout = cur;
+  state.page = page;
+  state.cur = 0;
 }
