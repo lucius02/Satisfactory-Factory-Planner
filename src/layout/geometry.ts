@@ -1,14 +1,14 @@
 /**
  * Local geometry of one group (production line). Local coordinates: `u` runs along the row of
- * machines, `v` from the input side (0) to the output side (V). Inputs enter at the top left,
- * outputs leave at the bottom right. The result is a list of drawable parts plus logistics counts.
+ * machines, `v` from the input side (0) to the output side (V). Inputs enter at the top left (or in
+ * the middle), outputs leave at the bottom right; `GroupPos.mirror` flips left and right. The result is a list of drawable parts plus logistics counts.
  */
 import { balancerCount, balancerTree, type BNode } from '../calc/balancer';
 import type { Group } from '../calc/model';
 import { isFluid } from '../data/items';
 import { LOGISTICS } from '../data/logistics';
 import type { Building, ItemId } from '../data/types';
-import type { GroupPos } from '../state/types';
+import type { BlockOpt, GroupPos } from '../state/types';
 
 export type Pt = [number, number];
 
@@ -56,6 +56,8 @@ export interface LocalGeom {
   parts: Part[];
   counts: LogiCount;
   rows: number;
+  /** Inputs/outputs in the middle (block setting honoured). */
+  center?: boolean;
 }
 
 export interface GeoSettings {
@@ -66,6 +68,10 @@ export interface GeoSettings {
   pole?: number;
   /** Center machines on foundations (8 m grid); `gap` is then ignored. */
   align?: boolean;
+  /** Too much flow for one belt: true = extra rows, false = parallel belts in the same row. */
+  capRows?: boolean;
+  /** Settings of this block. */
+  opt?: BlockOpt;
 }
 
 export const snapUp = (x: number): number => Math.ceil(x / 8 - 1e-9) * 8;
@@ -98,54 +104,77 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
   }
   const b = g.bld!;
   const n = g.count;
-  const gap = s.gap;
+  const o = s.opt ?? {};
   const sumClock = g.clocks.reduce((a, c) => a + c, 0) || 1;
   const maxClock = Math.max(...g.clocks, 1e-9);
   const capOf = (id: ItemId) => (isFluid(id) ? s.caps.pipe : s.caps.belt);
+  const perMachine = (rate: number) => (rate * maxClock) / sumClock;
+  const balanced = g.dist === 'balancer';
 
-  // machines per row: user limit, but one feed belt per row must carry the row's input/output
+  // machines per row: block setting, else global setting. Only when the belt capacity is handled
+  // with extra rows (or for a balancer) does capacity limit the row length; otherwise a row gets parallel belts.
+  const userPerRow = o.perRow && o.perRow > 0 ? o.perRow : s.perRow > 0 ? s.perRow : n;
   let perRowCap = n;
-  for (const f of [...g.inputs, ...g.outputs]) {
-    const perMachine = (f.rate * maxClock) / sumClock;
-    if (perMachine > 1e-9) perRowCap = Math.min(perRowCap, Math.max(1, Math.floor(capOf(f.item) / perMachine + 1e-9)));
-  }
-  let pr = Math.max(1, Math.min(s.perRow > 0 ? s.perRow : n, perRowCap, n));
+  if (s.capRows || balanced)
+    for (const f of [...g.inputs, ...g.outputs]) {
+      const pm = perMachine(f.rate);
+      if (pm > 1e-9) perRowCap = Math.min(perRowCap, Math.max(1, Math.floor(capOf(f.item) / pm + 1e-9)));
+    }
+  let pr = Math.max(1, Math.min(userPerRow, perRowCap, n));
   const nRows = Math.ceil(n / pr);
   pr = Math.ceil(n / nRows);
+  /** Parallel belts needed in one row for a flow. */
+  const rowBelts = (f: { item: ItemId; rate: number }, cnt: number) =>
+    Math.max(1, Math.ceil((perMachine(f.rate) * cnt) / capOf(f.item) - 1e-6));
+  const center =
+    o.side === 'center' && nRows === 1 && !balanced && [...g.inputs, ...g.outputs].every((f) => rowBelts(f, pr) === 1);
 
   const powered = g.kind === 'machine' || g.kind === 'generator' || g.kind === 'sink';
-  const balanced = g.dist === 'balancer';
   const balLevels = balanced ? balancerCount(pr).levels : 0;
+  const LANE_STEP = 2.2;
   const inBand = g.inputs.map((f) =>
-    isFluid(f.item) ? BAND_FLUID : balanced ? Math.max(1, balLevels) * LEVEL + 1 : BAND_SOLID,
+    isFluid(f.item)
+      ? BAND_FLUID + (rowBelts(f, pr) - 1) * LANE_STEP
+      : balanced
+        ? Math.max(1, balLevels) * LEVEL + 1
+        : BAND_SOLID + (rowBelts(f, pr) - 1) * LANE_STEP,
   );
-  const outBand = g.outputs.map((f) => (isFluid(f.item) ? BAND_FLUID : BAND_SOLID));
+  const outBand = g.outputs.map((f) => (isFluid(f.item) ? BAND_FLUID : BAND_SOLID) + (rowBelts(f, pr) - 1) * LANE_STEP);
   const sumIn = inBand.reduce((a, x) => a + x, 0);
 
   const nIn = g.inputs.length;
   const nOut = g.outputs.length;
   const align = s.align !== false;
+  const extra = Math.max(0, o.spacing ?? 0);
   // with alignment every machine gets whole foundations and sits in the middle of them
-  const pitch = align ? Math.ceil(b.w / 8 - 1e-9) * 8 : b.w + gap;
-  const mOffU = align ? (pitch - b.w) / 2 : 0;
+  const cellW = align ? Math.ceil(b.w / 8 - 1e-9) * 8 : b.w;
+  const pitch = align ? cellW + extra * 8 : b.w + s.gap + extra;
+  const mOffU = (cellW - b.w) / 2;
   const kL = align ? Math.ceil(b.l / 8 - 1e-9) * 8 : b.l;
-  const innerU = pr * pitch - (align ? 0 : gap);
-  const sideL = 2 + nIn * LANE_SIDE;
-  const sideR = 2 + nOut * LANE_SIDE;
+  const innerU = (pr - 1) * pitch + cellW;
+  const sideL = center ? 2 : 2 + nIn * LANE_SIDE;
+  const sideR = center ? 2 : 2 + nOut * LANE_SIDE;
   const rowGap = 3;
   const u0 = align ? Math.ceil(sideL / 8 - 1e-9) * 8 : sideL;
   const U = snapUp(u0 + innerU + sideR);
   const uEnd = u0 + innerU;
+  const uMid = u0 + innerU / 2;
   const sIn = Math.min(1.6, (b.w - 1) / Math.max(1, nIn));
   const sOut = Math.min(1.6, (b.w - 1) / Math.max(1, nOut));
   const inOff = (k: number) => (k - (nIn - 1) / 2) * sIn;
   const outOff = (j: number) => (j - (nOut - 1) / 2) * sOut;
 
   const inLanes: Lane[] = g.inputs.map((f, k) => ({
-    item: f.item, pu: u0 - 2 - k * LANE_SIDE, fluid: isFluid(f.item), belts: lanesFor(f.rate, f.item, s),
+    item: f.item,
+    pu: center ? uMid + inOff(k) : u0 - 2 - k * LANE_SIDE,
+    fluid: isFluid(f.item),
+    belts: lanesFor(f.rate, f.item, s),
   }));
   const outLanes: Lane[] = g.outputs.map((f, j) => ({
-    item: f.item, pu: uEnd + 2 + j * LANE_SIDE, fluid: isFluid(f.item), belts: lanesFor(f.rate, f.item, s),
+    item: f.item,
+    pu: center ? uMid + outOff(j) : uEnd + 2 + j * LANE_SIDE,
+    fluid: isFluid(f.item),
+    belts: lanesFor(f.rate, f.item, s),
   }));
 
   const parts: Part[] = [];
@@ -161,14 +190,20 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
       else counts.mergers++;
     }
   };
+  /** Split `xs` in `k` consecutive chunks (one belt each). */
+  const chunks = (xs: number[], k: number): number[][] => {
+    const out: number[][] = [];
+    for (let j = 0; j < k; j++) out.push(xs.slice(Math.round((j * xs.length) / k), Math.round(((j + 1) * xs.length) / k)));
+    return out.filter((c) => c.length);
+  };
 
-  const rowsInV: number[][] = [];
-  const rowsOutV: number[][] = [];
+  const tapsIn: number[][] = g.inputs.map(() => []);
+  const tapsOut: number[][] = g.outputs.map(() => []);
   let top = 1;
   for (let r = 0; r < nRows; r++) {
+    const cnt = Math.min(pr, n - r * pr);
     const mStart = align ? Math.ceil((top + sumIn + 1) / 8 - 1e-9) * 8 : top + sumIn + 1;
     const mV = mStart + (kL - b.l) / 2;
-    const cnt = Math.min(pr, n - r * pr);
     const centers: number[] = [];
     for (let i = 0; i < cnt; i++) {
       const idx = r * pr + i;
@@ -188,57 +223,80 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
     }
     // ---- inputs (bands directly above the machines)
     let bandTop = mStart - 1 - sumIn;
-    const inV: number[] = [];
     g.inputs.forEach((f, k) => {
       const lane = inLanes[k];
-      const off = inOff(k);
-      const xs = centers.map((c) => c + off);
+      const w = lane.fluid ? 0.6 : 0.55;
+      const xs = centers.map((c) => c + inOff(k));
       if (balanced && !lane.fluid && cnt > 1) {
         const rootV = bandTop + LEVEL / 2;
-        inV.push(rootV);
+        tapsIn[k].push(rootV);
         drawBalancer(balancerTree(cnt), xs, rootV, mV, uEnd + 0.8 + k * 0.6, lane, belt, node, parts);
-      } else {
+      } else if (center) {
+        // fed from the middle: a splitter under the entry sends the items both ways
         const v = bandTop + inBand[k] / 2;
-        inV.push(v);
-        belt([[lane.pu, v], [xs[xs.length - 1], v]], f.item, lane.fluid ? 0.6 : 0.55);
+        belt([[lane.pu, 0], [lane.pu, v]], f.item, w);
+        belt([[xs[0], v], [xs[xs.length - 1], v]], f.item, w);
+        if (xs.length > 1) node('split', lane.pu, v, f.item);
         xs.forEach((x, i) => {
-          if (i < xs.length - 1) node('split', x, v, f.item);
+          if (i > 0 && i < xs.length - 1 && Math.abs(x - lane.pu) > 1e-6) node('split', x, v, f.item);
           belt([[x, v], [x, mV]], f.item, 0.32);
+        });
+      } else {
+        chunks(xs, rowBelts(f, cnt)).forEach((cx, j) => {
+          const v = bandTop + (lane.fluid ? BAND_FLUID : BAND_SOLID) / 2 + j * LANE_STEP;
+          tapsIn[k].push(v);
+          belt([[lane.pu, v], [cx[cx.length - 1], v]], f.item, w);
+          cx.forEach((x, i) => {
+            if (i < cx.length - 1) node('split', x, v, f.item);
+            belt([[x, v], [x, mV]], f.item, 0.32);
+          });
         });
       }
       bandTop += inBand[k];
     });
-    rowsInV.push(inV);
     // ---- outputs (merger manifold)
     let ob = mStart + kL + (align ? 0.5 : 1);
-    const outV: number[] = [];
     g.outputs.forEach((f, j) => {
       const lane = outLanes[j];
-      const v = ob + outBand[j] / 2;
-      outV.push(v);
+      const w = lane.fluid ? 0.6 : 0.55;
       const xs = centers.map((c) => c + outOff(j));
-      xs.forEach((x, i) => {
-        belt([[x, mV + b.l], [x, v]], f.item, 0.32);
-        if (i > 0) node('merge', x, v, f.item);
-      });
-      belt([[xs[0], v], [lane.pu, v]], f.item, lane.fluid ? 0.6 : 0.55);
+      if (center) {
+        const v = ob + outBand[j] / 2;
+        xs.forEach((x, i) => {
+          belt([[x, mV + b.l], [x, v]], f.item, 0.32);
+          if (i > 0 && i < xs.length - 1 && Math.abs(x - lane.pu) > 1e-6) node('merge', x, v, f.item);
+        });
+        belt([[xs[0], v], [xs[xs.length - 1], v]], f.item, w);
+        if (xs.length > 1) node('merge', lane.pu, v, f.item);
+        tapsOut[j].push(v);
+      } else {
+        chunks(xs, rowBelts(f, cnt)).forEach((cx, q) => {
+          const v = ob + (lane.fluid ? BAND_FLUID : BAND_SOLID) / 2 + q * LANE_STEP;
+          tapsOut[j].push(v);
+          cx.forEach((x, i) => {
+            belt([[x, mV + b.l], [x, v]], f.item, 0.32);
+            if (i > 0) node('merge', x, v, f.item);
+          });
+          belt([[cx[0], v], [lane.pu, v]], f.item, w);
+        });
+      }
       ob += outBand[j];
     });
-    rowsOutV.push(outV);
     top = ob + rowGap;
   }
   const V = snapUp(top - rowGap + 1);
 
-  // ---- trunks on the sides (feed each row)
+  // ---- trunks (feed each row / each parallel belt)
   inLanes.forEach((lane, k) => {
-    const vs = rowsInV.map((r) => r[k]);
+    if (center) return;
+    const vs = tapsIn[k].sort((a, c) => a - c);
     belt([[lane.pu, 0], [lane.pu, vs[vs.length - 1]]], lane.item, 0.55 + Math.min(0.5, (lane.belts - 1) * 0.25));
     vs.slice(0, -1).forEach((v) => node('split', lane.pu, v, lane.item));
   });
   outLanes.forEach((lane, j) => {
-    const vs = rowsOutV.map((r) => r[j]);
+    const vs = tapsOut[j].sort((a, c) => a - c);
     belt([[lane.pu, vs[0]], [lane.pu, V]], lane.item, 0.55 + Math.min(0.5, (lane.belts - 1) * 0.25));
-    vs.slice(1).forEach((v) => node('merge', lane.pu, v, lane.item));
+    if (!center) vs.slice(1).forEach((v) => node('merge', lane.pu, v, lane.item));
   });
   // a balanced split over several rows needs a small balancer instead of a manifold on the trunk
   if (balanced && nRows > 1) {
@@ -249,7 +307,7 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
 
   if (counts.poles) counts.wires = machines.length + counts.poles - 1;
   chainPoles(parts);
-  return { U, V, src: false, bld: b, machines, inLanes, outLanes, parts, counts, rows: nRows };
+  return { U, V, src: false, bld: b, machines, inLanes, outLanes, parts, counts, rows: nRows, center };
 }
 
 /** The poles of a group are linked in a chain: add those links to `used`. */

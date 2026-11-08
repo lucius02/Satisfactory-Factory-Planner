@@ -40,6 +40,8 @@ export const DEFAULT_STATE: State = {
   pole: 2,
   showWires: true,
   align: true,
+  capRows: false,
+  blockOpt: {},
 };
 
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
@@ -68,6 +70,8 @@ export function normalize(raw: unknown, base: State = DEFAULT_STATE): State {
     .map((x) => ({ item: x.item, rate: Math.max(0, Number(x.rate) || 0) }));
   s.beltOff ??= {};
   s.otherLayout ??= { pos: {}, beltOff: {} };
+  s.blockOpt ??= {};
+  s.otherLayout.blockOpt ??= {};
   s.otherLayout.pos ??= {};
   s.otherLayout.beltOff ??= {};
   s.gens = (Array.isArray(s.gens) ? s.gens : []).filter((g) => g && GENERATORS[g.gen]);
@@ -117,7 +121,7 @@ export function replaceState(next: State): void {
 
 /** Data for the share code. */
 export function exportCode(): string {
-  const d: Record<string, unknown> = { v: 3, targets: state.targets, rc: state.rc, unlocked: state.unlocked, external: state.external, beltOff: state.beltOff, page: state.page, otherLayout: state.otherLayout, gens: state.gens, distOv: state.distOv, pos: state.pos };
+  const d: Record<string, unknown> = { v: 3, targets: state.targets, rc: state.rc, unlocked: state.unlocked, external: state.external, beltOff: state.beltOff, blockOpt: state.blockOpt, page: state.page, otherLayout: state.otherLayout, gens: state.gens, distOv: state.distOv, pos: state.pos };
   for (const k of SETTING_KEYS) d[k] = state[k];
   return JSON.stringify(d);
 }
@@ -131,9 +135,10 @@ export function importCode(code: string): State {
 /** Switch between the factory and power planner; each keeps its own layout. */
 export function switchPage(page: State['page']): void {
   if (state.page === page) return;
-  const cur = { pos: state.pos, beltOff: state.beltOff };
+  const cur = { pos: state.pos, beltOff: state.beltOff, blockOpt: state.blockOpt };
   state.pos = state.otherLayout.pos;
   state.beltOff = state.otherLayout.beltOff;
+  state.blockOpt = state.otherLayout.blockOpt ?? {};
   state.otherLayout = cur;
   state.page = page;
   state.cur = 0;

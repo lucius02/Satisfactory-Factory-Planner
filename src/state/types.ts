@@ -18,9 +18,20 @@ export type LayoutMode = 'flow' | 'compact';
 
 export type Page = 'factory' | 'power';
 
+/** Settings of one block (production line), set in its info panel. */
+export interface BlockOpt {
+  /** Where the input belts enter: left, middle or right (unset = automatic left/right). */
+  side?: 'left' | 'center' | 'right';
+  /** Machines per row for this block (unset = global setting). */
+  perRow?: number;
+  /** Extra space between the machines (foundations when aligned, else metres). */
+  spacing?: number;
+}
+
 /** Positions and belt waypoints of one plan (factory or power plant). */
 export interface PlanLayout {
   pos: Record<string, GroupPos>;
+  blockOpt?: Record<string, BlockOpt>;
   beltOff: Record<string, [number, number]>;
 }
 
@@ -89,12 +100,16 @@ export interface State {
   pole: 1 | 2 | 3;
   /** Draw the power lines between production lines on the map. */
   showWires: boolean;
+  /** Too much flow for one belt: extra rows (true) or parallel belts in the same row (false). */
+  capRows: boolean;
+  /** Per block settings, by group key (per page). */
+  blockOpt: Record<string, BlockOpt>;
   /** Center machines on foundations. */
   align: boolean;
 }
 
 /** Settings that are part of the share code / settings panel. */
 export const SETTING_KEYS = [
-  'miner', 'purity', 'clockMode', 'gap', 'perRow', 'floors', 'belt', 'pipe', 'dist', 'balSmooth', 'surplus', 'reuse', 'snap', 'goal', 'layoutMode', 'floorW', 'floorL', 'pole', 'produceFuel', 'showWires', 'align',
+  'miner', 'purity', 'clockMode', 'gap', 'perRow', 'floors', 'belt', 'pipe', 'dist', 'balSmooth', 'surplus', 'reuse', 'snap', 'goal', 'layoutMode', 'floorW', 'floorL', 'pole', 'produceFuel', 'showWires', 'align', 'capRows',
 ] as const;
 export type SettingKey = (typeof SETTING_KEYS)[number];

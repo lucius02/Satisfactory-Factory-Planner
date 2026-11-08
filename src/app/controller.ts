@@ -25,9 +25,9 @@ export function recompute(opts: RecomputeOpts = {}): void {
   ctx.auto = autoRecipes();
   ctx.model = compute({ ...planInput(), rc: effectiveRc() });
   if (ctx.sel && !ctx.model.byKey[ctx.sel]) ctx.sel = null;
-  const geo = { gap: state.gap, perRow: state.perRow, caps: ctx.model.caps, pole: state.pole, align: state.align };
+  const geo = { gap: state.gap, perRow: state.perRow, caps: ctx.model.caps, pole: state.pole, align: state.align, capRows: state.capRows };
   ctx.local = {};
-  for (const g of ctx.model.groups) ctx.local[g.key] = geomLocal(g, geo);
+  for (const g of ctx.model.groups) ctx.local[g.key] = geomLocal(g, { ...geo, opt: state.blockOpt[g.key] });
   ctx.fits = autoLayout(
     ctx.model,
     state.pos,
@@ -35,6 +35,13 @@ export function recompute(opts: RecomputeOpts = {}): void {
     (g) => ctx.local[g.key],
     opts.force,
   );
+  // a chosen input side overrides the automatic mirroring
+  for (const g of ctx.model.groups) {
+    const side = state.blockOpt[g.key]?.side;
+    const p = state.pos[g.key];
+    if (p && (side === 'left' || side === 'right')) p.mirror = side === 'right' ? 1 : 0;
+    if (p && side === 'center') p.mirror = 0;
+  }
   state.cur = Math.min(state.cur || 0, (state.floors || 1) - 1);
   renderAll();
   if (opts.fit) fitView();

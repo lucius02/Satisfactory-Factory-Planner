@@ -29,6 +29,17 @@ function floorRow(f: number): string {
     <button class="btn btn-sm" data-act="fup" ${f >= F - 1 ? 'disabled' : ''}>▲ ${t('up')}</button></div>`;
 }
 
+function blockSettings(g: Group): string {
+  const o = state.blockOpt[g.key] ?? {};
+  const L = ctx.local[g.key];
+  const opt = (v: string, label: string, cur: string) => `<option value="${v}"${v === cur ? ' selected' : ''}>${label}</option>`;
+  return `${h2('blockH')}
+    <div class="field"><label>${t('inSide')}</label><select data-act="side">${opt('', t('sideAuto'), o.side ?? '')}${opt('left', t('sideLeft'), o.side ?? '')}${opt('center', t('sideCenter'), o.side ?? '')}${opt('right', t('sideRight'), o.side ?? '')}</select></div>
+    <div class="field"><label>${t('perRow')}</label><input type="number" min="0" step="1" data-act="perRow" value="${o.perRow ?? 0}" title="0 = ${esc(t('sideAuto'))}"></div>
+    <div class="field"><label>${t(state.align ? 'spacingF' : 'spacingM')}</label><input type="number" min="0" step="1" data-act="spacing" value="${o.spacing ?? 0}"></div>
+    ${o.side === 'center' && L && !L.center ? `<p class="note">${t('centerNote')}</p>` : ''}`;
+}
+
 function logistics(g: Group): string {
   const L = ctx.local[g.key];
   if (!L || L.src) return '';
@@ -77,12 +88,13 @@ export function renderInfo(): void {
       <div class="chips"><span class="chip">${fmt(g.rate)}${g.id ? unit(g.id) : '/min'}</span>${extra}</div>
       ${g.fallback ? `<p class="note">${t('fallbackNote')}</p>` : ''}
       ${h2('inputs')}<ul class="list">${g.inputs.map((i) => li(`${dot(col(i.item))}${esc(itemName(i.item))}`, `${fmt(i.rate)}${unit(i.item)}`)).join('')}</ul>
-      ${logistics(g)}${floorRow(p.f)}${acts}`;
+      ${blockSettings(g)}${logistics(g)}${floorRow(p.f)}${acts}`;
     return;
   }
 
   if (g.kind === 'generator') {
     el.innerHTML = `${head(groupTitle(g), `${g.count}× ${esc(g.bld!.n)} (${g.bld!.w}×${g.bld!.l} m) · ${size}`)}
+      ${blockSettings(g)}
       <div class="chips"><span class="chip">${fmtInt(g.gen ?? 0)} MW</span><span class="chip">${g.count}× ${pct(g.clocks[0])}</span></div>
       ${h2('inputs')}<ul class="list">${g.inputs.map((i) => li(`${dot(col(i.item))}${esc(itemName(i.item))}`, `${fmt(i.rate)}${unit(i.item)} <span class="sub">${beltFor(i.rate, i.item)}</span>`)).join('')}</ul>
       ${g.outputs.length ? `${h2('surplus')}<ul class="list">${g.outputs.map((o) => li(`${dot(col(o.item))}${esc(itemName(o.item))}`, `${fmt(o.rate)}${unit(o.item)}`)).join('')}</ul>` : ''}
@@ -130,7 +142,7 @@ export function renderInfo(): void {
     ${h2('inputs')}<ul class="list">${g.inputs.map((i) => li(`${dot(col(i.item))}${esc(itemName(i.item))}`, `${fmt(i.rate)}${unit(i.item)} <span class="sub">${beltFor(i.rate, i.item)}</span>`)).join('') || '<li>–</li>'}</ul>
     ${h2('goesTo')}<ul class="list">${users.map((x) => li(esc(x.name), `${fmt(x.r)}${unit(g.id)}`)).join('')}${target ? li(`★ ${t('endProduct')}`, `${fmt(target)}${unit(g.id)}`) : ''}${g.outputs.slice(1).map((o) => li(`+ ${esc(itemName(o.item))}`, `${fmt(o.rate)}${unit(o.item)}`)).join('')}</ul>
     ${h2('machinesH')}<div class="chips">${g.clocks.map((c, i) => `<span class="chip">#${i + 1} ${pct(c)}</span>`).join('')}</div>
-    ${logistics(g)}${floorRow(p.f)}${acts}`;
+    ${blockSettings(g)}${logistics(g)}${floorRow(p.f)}${acts}`;
 }
 
 export function rotateSelected(): void {
@@ -152,13 +164,11 @@ export function rotateSelected(): void {
 }
 
 export function mirrorSelected(): void {
-  const p = ctx.sel ? state.pos[ctx.sel] : undefined;
-  if (!p) return;
-  p.mirror = p.mirror ? 0 : 1;
-  p.manual = true;
-  renderMap();
-  renderInfo();
-  saveState(state);
+  const key = ctx.sel;
+  const p = key ? state.pos[key] : undefined;
+  if (!key || !p) return;
+  (state.blockOpt[key] ??= {}).side = p.mirror ? 'left' : 'right';
+  recompute();
 }
 
 export function bindInfo(): void {
@@ -196,6 +206,18 @@ export function bindInfo(): void {
       if (s.value) state.rc[g.id] = s.value;
       else delete state.rc[g.id];
       renderRecBtn();
+      recompute();
+    } else if (s.dataset.act === 'side' || s.dataset.act === 'perRow' || s.dataset.act === 'spacing') {
+      const o = (state.blockOpt[g.key] ??= {});
+      if (s.dataset.act === 'side') {
+        if (s.value) o.side = s.value as 'left' | 'center' | 'right';
+        else delete o.side;
+      } else {
+        const v = Math.max(0, Math.round(Number(s.value) || 0));
+        if (v) o[s.dataset.act as 'perRow' | 'spacing'] = v;
+        else delete o[s.dataset.act as 'perRow' | 'spacing'];
+      }
+      if (!Object.keys(o).length) delete state.blockOpt[g.key];
       recompute();
     } else if (s.dataset.act === 'dist') {
       if (s.value) state.distOv[g.key] = s.value as DistMode;

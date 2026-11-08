@@ -1,6 +1,6 @@
 [package]
 name = "fabrieksplanner"
-version = "0.5.0"
+version = "0.5.1"
 description = "Satisfactory factory planner"
 authors = ["lucius02"]
 license = ""

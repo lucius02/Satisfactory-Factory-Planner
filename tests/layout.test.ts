@@ -98,3 +98,31 @@ describe('pole capacity', () => {
     expect(net.extraPoles).toBe(1);
   });
 });
+
+describe('rows, parallel belts and block settings', () => {
+  const smelt = compute({
+    targets: [{ item: 'iron-ingot', rate: 435 }], external: [], rc: {}, miner: 2, purity: 1, clockMode: 'even', belt: 3, pipe: 1,
+    reuse: true, surplus: 'output', dist: 'manifold', distOv: {}, balSmooth: false,
+  }).byKey['m:iron-ingot'];
+  const base = { gap: 2, perRow: 0, caps: { belt: 270, pipe: 300 }, align: true };
+
+  it('keeps one row and uses parallel belts when the flow does not fit on one belt', () => {
+    const L = geomLocal(smelt, base);
+    expect(L.rows).toBe(1);
+    expect(L.inLanes[0].belts).toBe(2);
+  });
+  it('makes extra rows when that option is on', () => {
+    expect(geomLocal(smelt, { ...base, capRows: true }).rows).toBe(2);
+  });
+  it('honours machines per row and spacing of a block', () => {
+    const L = geomLocal(smelt, { ...base, opt: { perRow: 5, spacing: 1 } });
+    expect(L.rows).toBe(Math.ceil(smelt.count / 5));
+    expect(L.machines[1].u - L.machines[0].u).toBe(16);
+  });
+  it('feeds from the middle when asked and possible', () => {
+    const g = model.groups.find((x) => x.key === 'm:modular-frame')!;
+    const L = geomLocal(g, { gap: 2, perRow: 8, caps: model.caps, align: true, opt: { side: 'center' } });
+    expect(L.center).toBe(true);
+    expect(Math.abs(L.inLanes[0].pu - L.U / 2)).toBeLessThan(8);
+  });
+});
