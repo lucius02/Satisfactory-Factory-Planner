@@ -1,0 +1,20 @@
+{
+  "name": "satisfactory-fabrieksplanner",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.5",
+    "tailwindcss": "^4.3.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.6",
+    "vitest": "^4.1.12"
+  }
+}

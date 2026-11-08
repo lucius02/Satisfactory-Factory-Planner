@@ -1,0 +1,214 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-bg: #121417;
+  --color-panel: #1a1d22;
+  --color-panel2: #20242a;
+  --color-line: #2c3138;
+  --color-line2: #3a4049;
+  --color-ink: #e8e4db;
+  --color-muted: #8e939b;
+  --color-accent: #f29b30;
+  --color-accent2: #ffb85c;
+  --color-bad: #e5534b;
+  --color-fluid: #4aa8e0;
+  --color-on-accent: #1b1206;
+  --font-sans: Inter, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-head: 'Barlow Condensed', Inter, sans-serif;
+}
+
+@layer base {
+  html,
+  body {
+    @apply h-full bg-bg text-sm/[1.45] text-ink;
+  }
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
+  select,
+  input[type='number'] {
+    @apply w-full min-w-0 rounded-md border border-line2 bg-panel2 px-2 py-[7px];
+  }
+  input[type='number'] {
+    @apply text-right font-mono;
+  }
+  select:focus,
+  input:focus,
+  textarea:focus {
+    @apply outline-2 -outline-offset-1 outline-accent;
+  }
+  [hidden] {
+    display: none !important;
+  }
+}
+
+@layer components {
+  .side-section {
+    @apply border-b border-line px-[18px] py-3.5;
+  }
+  .h2 {
+    @apply mb-2.5 font-head text-[15px] font-semibold uppercase tracking-[.08em] text-muted;
+  }
+  .summary {
+    @apply flex cursor-pointer list-none items-center justify-between select-none;
+  }
+  .summary::-webkit-details-marker {
+    display: none;
+  }
+  .summary::after {
+    content: '▾';
+    @apply text-xs transition-transform;
+  }
+  details:not([open]) > .summary {
+    @apply mb-0;
+  }
+  details:not([open]) > .summary::after {
+    transform: rotate(-90deg);
+  }
+  .field {
+    @apply mb-2 grid grid-cols-[1fr_160px] items-center gap-2 text-[13px];
+  }
+  .check {
+    @apply mb-1.5 flex cursor-pointer items-start gap-2 text-[13px];
+  }
+  .check input {
+    @apply mt-px size-4 flex-none accent-accent;
+  }
+  .note {
+    @apply mt-2 text-xs text-muted;
+  }
+  .input {
+    @apply rounded-md border border-line2 bg-panel2 px-2.5 py-[7px];
+  }
+  .btn {
+    @apply cursor-pointer whitespace-nowrap rounded-md border border-line2 bg-panel2 px-3 py-[7px] hover:border-accent hover:text-accent2 disabled:cursor-default disabled:border-line2 disabled:text-inherit disabled:opacity-40;
+  }
+  .btn-primary {
+    @apply border-accent bg-accent font-semibold text-on-accent hover:bg-accent2 hover:text-on-accent;
+  }
+  .btn-sm {
+    @apply px-2.5 py-[5px] text-[12.5px];
+  }
+  .lang-btn {
+    @apply cursor-pointer border-0 bg-panel2 px-2 py-1 font-mono text-xs text-muted;
+  }
+  .lang-btn.on {
+    @apply bg-accent font-semibold text-on-accent;
+  }
+  .tab-btn {
+    @apply cursor-pointer rounded-md border-0 bg-transparent px-3.5 py-1.5 font-head text-[15px] font-semibold uppercase tracking-wider text-muted;
+  }
+  .tab-btn.on {
+    @apply bg-accent text-on-accent;
+  }
+  .floor-btn {
+    @apply min-w-[34px] cursor-pointer rounded-md border border-line2 bg-panel2 px-2 py-1.5 font-mono text-[12.5px];
+  }
+  .floor-btn.on {
+    @apply border-accent bg-[#3a2a14] text-accent2;
+  }
+  .stat {
+    @apply rounded-lg border border-line bg-panel2 px-2.5 py-2;
+  }
+  .stat b {
+    @apply block font-mono text-[17px] font-medium text-accent2;
+  }
+  .stat small {
+    @apply text-[11.5px] uppercase tracking-[.06em] text-muted;
+  }
+  .list {
+    @apply m-0 list-none p-0 text-[13px];
+  }
+  .list li {
+    @apply flex justify-between gap-2 border-b border-dashed border-line py-1 last:border-b-0;
+  }
+  .num {
+    @apply whitespace-nowrap font-mono text-ink;
+  }
+  .sub {
+    @apply text-xs text-muted;
+  }
+  .dot {
+    @apply mr-1.5 inline-block size-[9px] rounded-[2px] align-middle;
+  }
+  .chips {
+    @apply my-1.5 flex flex-wrap gap-1;
+  }
+  .chip {
+    @apply rounded border border-line2 bg-panel2 px-1.5 py-0.5 font-mono text-[11.5px];
+  }
+  .badge {
+    @apply ml-1.5 rounded-[3px] border border-[#6b4a1c] bg-[#3a2a14] px-[5px] py-px align-[1px] font-mono text-[10.5px] text-accent2;
+  }
+  .info-panel {
+    @apply absolute top-3.5 right-3.5 max-h-[calc(100%-28px)] w-[320px] overflow-auto rounded-[10px] border border-line2 bg-panel/97 p-3.5 shadow-[0_10px_30px_rgba(0,0,0,.4)] max-md:top-auto max-md:bottom-[60px] max-md:left-3.5 max-md:max-h-[45%] max-md:w-auto;
+  }
+  .modal {
+    @apply fixed inset-0 z-10 flex items-center justify-center bg-black/60;
+  }
+  .modal-box {
+    @apply rounded-xl border border-line2 bg-panel p-[18px];
+  }
+  .trow {
+    @apply mb-1.5 grid grid-cols-[1fr_78px_28px] items-center gap-1.5;
+  }
+  .x-btn {
+    @apply h-8 cursor-pointer rounded-md border border-transparent bg-transparent text-muted hover:border-line2 hover:text-bad;
+  }
+  .ropt {
+    @apply grid cursor-pointer grid-cols-[18px_1fr] items-start gap-x-2 gap-y-1 rounded-md px-1.5 py-[5px] hover:bg-panel2;
+  }
+  .ropt input {
+    @apply mt-[3px] accent-accent;
+  }
+  .ropt small {
+    @apply col-start-2 font-mono text-[11.5px] text-muted;
+  }
+  .data-table {
+    @apply w-full border-collapse text-[13.5px];
+  }
+  .data-table th {
+    @apply sticky -top-[18px] border-b border-line2 bg-bg px-2.5 py-2 text-left font-head font-semibold uppercase tracking-[.06em] text-muted;
+  }
+  .data-table td {
+    @apply border-b border-line px-2.5 py-2 align-top;
+  }
+  .data-table .n {
+    @apply text-right font-mono whitespace-nowrap;
+  }
+}
+
+/* ---- SVG map ---- */
+#map.panning {
+  cursor: grabbing;
+}
+#map text {
+  font-family: Inter, sans-serif;
+  pointer-events: none;
+}
+.grp {
+  fill: #1f252d;
+  fill-opacity: 0.82;
+  stroke: #55606d;
+  stroke-width: 0.25;
+  stroke-dasharray: 1 0.6;
+}
+.gsel .grp {
+  stroke: var(--color-accent);
+  stroke-width: 0.45;
+  stroke-dasharray: none;
+}
+.gbad .grp {
+  stroke: var(--color-bad);
+  stroke-width: 0.5;
+  stroke-dasharray: none;
+  fill: #2b1d1f;
+}
+[data-key] {
+  cursor: move;
+}

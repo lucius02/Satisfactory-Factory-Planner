@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fabrieksplanner — Satisfactory calculator met plattegrond</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#121417;--panel:#1a1d22;--panel2:#20242a;--line:#2c3138;--line2:#3a4049;
+  --text:#e8e4db;--muted:#8e939b;--accent:#f29b30;--accent2:#ffb85c;--bad:#e5534b;--fluid:#4aa8e0;
+  --mono:'JetBrains Mono',ui-monospace,monospace;--head:'Barlow Condensed','Inter',sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:14px/1.45 Inter,system-ui,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+.app{display:grid;grid-template-columns:340px 1fr;height:100vh}
+aside{background:var(--panel);border-right:1px solid var(--line);overflow:auto;display:flex;flex-direction:column}
+.brand{padding:18px 18px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.brand h1{font-family:var(--head);font-weight:700;font-size:26px;letter-spacing:.02em;margin:0;text-transform:uppercase}
+.brand h1 span{color:var(--accent)}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:12.5px}
+.lang{display:flex;border:1px solid var(--line2);border-radius:6px;overflow:hidden;flex:none;margin-top:4px}
+.lang button{background:var(--panel2);border:0;padding:4px 8px;cursor:pointer;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.lang button.on{background:var(--accent);color:#1b1206;font-weight:600}
+section{padding:14px 18px;border-bottom:1px solid var(--line)}
+h2{font-family:var(--head);font-weight:600;font-size:15px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+.trow{display:grid;grid-template-columns:1fr 78px 28px;gap:6px;margin-bottom:6px;align-items:center}
+select,input[type=number]{background:var(--panel2);border:1px solid var(--line2);border-radius:6px;padding:7px 8px;width:100%;min-width:0}
+input[type=number]{font-family:var(--mono);text-align:right}
+select:focus,input:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.x{background:none;border:1px solid transparent;border-radius:6px;color:var(--muted);cursor:pointer;height:32px}
+.x:hover{color:var(--bad);border-color:var(--line2)}
+.btn{background:var(--panel2);border:1px solid var(--line2);border-radius:6px;padding:7px 12px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--accent);color:var(--accent2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#1b1206;font-weight:600}
+.btn.primary:hover{background:var(--accent2);color:#1b1206}
+.btn.small{padding:5px 9px;font-size:12.5px}
+.btn:disabled{opacity:.4;cursor:default;border-color:var(--line2);color:inherit}
+.field{display:grid;grid-template-columns:1fr 150px;align-items:center;gap:8px;margin-bottom:8px;font-size:13px}
+.check{display:flex;gap:8px;align-items:center;font-size:13px;cursor:pointer}
+.check input{accent-color:var(--accent);width:16px;height:16px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.stat b{display:block;font-family:var(--mono);font-size:17px;font-weight:500;color:var(--accent2)}
+.stat small{color:var(--muted);font-size:11.5px;text-transform:uppercase;letter-spacing:.06em}
+.list{margin:0;padding:0;list-style:none;font-size:13px}
+.list li{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px dashed var(--line)}
+.list li:last-child{border-bottom:0}
+.list .num{font-family:var(--mono);color:var(--text);white-space:nowrap}
+.list .sub{color:var(--muted);font-size:12px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.note{color:var(--muted);font-size:12px;margin:8px 0 0}
+main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.toolbar{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
+.tabs{display:flex;background:var(--panel2);border:1px solid var(--line2);border-radius:8px;padding:3px}
+.tabs button{background:none;border:0;padding:6px 14px;border-radius:6px;cursor:pointer;color:var(--muted);font-family:var(--head);font-size:15px;letter-spacing:.05em;text-transform:uppercase;font-weight:600}
+.tabs button.on{background:var(--accent);color:#1b1206}
+.floors{display:flex;align-items:center;gap:4px;padding-left:6px}
+.floors span{color:var(--muted);font-size:12px;margin-right:2px}
+.floors button{min-width:34px;padding:6px 8px;background:var(--panel2);border:1px solid var(--line2);border-radius:6px;cursor:pointer;font-family:var(--mono);font-size:12.5px}
+.floors button.on{background:#3a2a14;border-color:var(--accent);color:var(--accent2)}
+.spacer{flex:1}
+.legend{color:var(--muted);font-size:12px;display:flex;gap:14px;align-items:center}
+.legend i{display:inline-block;width:14px;height:14px;border:1px solid #4a5360;border-radius:2px;background:#181c21;vertical-align:-3px;margin-right:5px}
+.stage{position:relative;flex:1;min-height:0}
+#map{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:grab;touch-action:none;user-select:none}
+#map.panning{cursor:grabbing}
+#map text{font-family:Inter,sans-serif;pointer-events:none}
+.grp{fill:#1f252d;fill-opacity:.82;stroke:#55606d;stroke-width:.25;stroke-dasharray:1 .6}
+.gsel .grp{stroke:var(--accent);stroke-width:.45;stroke-dasharray:none}
+.gbad .grp{stroke:var(--bad);stroke-width:.5;stroke-dasharray:none;fill:#2b1d1f}
+[data-key]{cursor:move}
+.zoom{position:absolute;left:14px;bottom:14px;display:flex;flex-direction:column;gap:4px}
+.zoom button{width:34px;height:34px;padding:0;font-size:18px}
+#info{position:absolute;right:14px;top:14px;width:310px;background:rgba(26,29,34,.97);border:1px solid var(--line2);border-radius:10px;padding:14px;box-shadow:0 10px 30px rgba(0,0,0,.4);max-height:calc(100% - 28px);overflow:auto}
+#info h3{font-family:var(--head);font-size:21px;margin:0;font-weight:700;letter-spacing:.02em}
+#info .meta{color:var(--muted);font-size:12.5px;margin:2px 0 10px}
+#info .acts{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}
+#info select{margin-bottom:4px}
+.frow{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:13px}
+.frow b{font-family:var(--mono);min-width:44px;text-align:center}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0}
+.chip{font-family:var(--mono);font-size:11.5px;background:var(--panel2);border:1px solid var(--line2);border-radius:4px;padding:2px 6px}
+.hint{position:absolute;left:60px;bottom:14px;color:var(--muted);font-size:12px;background:rgba(18,20,23,.85);padding:6px 10px;border-radius:6px;border:1px solid var(--line)}
+#tableView{flex:1;overflow:auto;padding:18px}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th{font-family:var(--head);text-transform:uppercase;letter-spacing:.06em;font-weight:600;color:var(--muted);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line2);position:sticky;top:-18px;background:var(--bg)}
+td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+td.n{font-family:var(--mono);text-align:right;white-space:nowrap}
+th.n{text-align:right}
+tr.src td{color:#c9d3dd}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:10}
+.modal .box{background:var(--panel);border:1px solid var(--line2);border-radius:12px;padding:18px;width:min(620px,92vw)}
+.modal textarea{width:100%;height:240px;background:var(--panel2);border:1px solid var(--line2);border-radius:6px;padding:10px;font-family:var(--mono);font-size:12px;resize:vertical}
+.modal .row{display:flex;gap:8px;justify-content:flex-end;margin-top:10px;align-items:center}
+.modal .msg{margin-right:auto;color:var(--muted);font-size:12.5px}
+.modal .box.wide{width:min(820px,94vw)}
+.recbar{display:flex;gap:12px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.recbar input[type=search]{flex:1;min-width:200px;background:var(--panel2);border:1px solid var(--line2);border-radius:6px;padding:7px 10px}
+#recList{max-height:58vh;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.rgrp{padding:10px 12px;border-bottom:1px solid var(--line)}
+.rgrp:last-child{border-bottom:0}
+.rgrp h4{margin:0 0 6px;font-family:var(--head);font-size:16px;letter-spacing:.03em;display:flex;gap:8px;align-items:center}
+.ropt{display:grid;grid-template-columns:18px 1fr;gap:4px 8px;padding:5px 6px;border-radius:6px;cursor:pointer;align-items:start}
+.ropt:hover{background:var(--panel2)}
+.ropt input{accent-color:var(--accent);margin-top:3px}
+.ropt b{font-weight:600}
+.ropt small{grid-column:2;color:var(--muted);font-family:var(--mono);font-size:11.5px}
+.badge{font-family:var(--mono);font-size:10.5px;padding:1px 5px;border-radius:3px;background:#3a2a14;color:var(--accent2);border:1px solid #6b4a1c;margin-left:6px;vertical-align:1px}
+.warn{color:var(--bad);font-size:12.5px;margin:0 0 8px}
+[hidden]{display:none!important}
+@media (max-width:860px){
+  .app{grid-template-columns:1fr;height:auto}
+  aside{border-right:0;border-bottom:1px solid var(--line)}
+  main{height:80vh}
+  #info{width:auto;left:14px;top:auto;bottom:60px;max-height:45%}
+  .hint{display:none}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="brand">
+      <div>
+        <h1 data-i="brandA"></h1>
+        <p data-i="brandSub"></p>
+      </div>
+      <div class="lang" role="group" aria-label="Language">
+        <button data-lang="nl">NL</button><button data-lang="en">EN</button>
+      </div>
+    </div>
+    <section>
+      <h2 data-i="whatMake"></h2>
+      <div id="targets"></div>
+      <button class="btn small" id="addTarget" data-i="addProduct"></button>
+    </section>
+    <section>
+      <h2 data-i="settings"></h2>
+      <div class="field"><label for="miner" data-i="miner"></label>
+        <select id="miner"><option value="1">Miner Mk1</option><option value="2">Miner Mk2</option><option value="3">Miner Mk3</option></select></div>
+      <div class="field"><label for="purity" data-i="purity"></label>
+        <select id="purity"><option value="0" data-i="impure"></option><option value="1" data-i="normal"></option><option value="2" data-i="pure"></option></select></div>
+      <div class="field"><label for="clockMode" data-i="clock"></label>
+        <select id="clockMode"><option value="even" data-i="clockEven"></option><option value="fill" data-i="clockFill"></option></select></div>
+      <div class="field"><label for="gap" data-i="gap"></label>
+        <select id="gap"><option value="0">0 m</option><option value="1">1 m</option><option value="2">2 m</option><option value="4">4 m</option></select></div>
+      <div class="field"><label for="perRow" data-i="perRow"></label>
+        <select id="perRow"><option value="4">4</option><option value="6">6</option><option value="8">8</option><option value="10">10</option><option value="15">15</option><option value="0" data-i="unlimited"></option></select></div>
+      <div class="field"><label for="floors" data-i="floorsSet"></label>
+        <select id="floors"><option value="1" data-i="oneFloor"></option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></div>
+      <label class="check"><input type="checkbox" id="snap"> <span data-i="snap"></span></label>
+    </section>
+    <section>
+      <h2 data-i="overview"></h2>
+      <p class="warn" id="warn" hidden></p>
+      <div class="stats">
+        <div class="stat"><small data-i="power"></small><b id="sPower">–</b></div>
+        <div class="stat"><small data-i="machines"></small><b id="sMachines">–</b></div>
+        <div class="stat"><small data-i="area"></small><b id="sArea">–</b></div>
+        <div class="stat"><small data-i="lines"></small><b id="sGroups">–</b></div>
+      </div>
+      <h2 data-i="rawH"></h2>
+      <ul class="list" id="rawList"></ul>
+      <div id="byWrap" hidden><h2 style="margin-top:14px" data-i="surplusH"></h2><ul class="list" id="byList"></ul></div>
+      <h2 style="margin-top:14px" data-i="buildingsH"></h2>
+      <ul class="list" id="bList"></ul>
+      <p class="note" data-i="dataNote"></p>
+    </section>
+  </aside>
+
+  <main>
+    <div class="toolbar">
+      <div class="tabs" role="tablist">
+        <button id="tabMap" class="on" role="tab" data-i="tabMap"></button>
+        <button id="tabTable" role="tab" data-i="tabTable"></button>
+      </div>
+      <div class="floors" id="floorTabs" hidden></div>
+      <button class="btn" id="btnAuto" data-i="auto"></button>
+      <button class="btn" id="btnFit" data-i="fit"></button>
+      <button class="btn" id="btnRec"></button>
+      <button class="btn" id="btnExport" data-i="share"></button>
+      <span class="spacer"></span>
+      <span class="legend"><span><i></i><span data-i="legend"></span></span></span>
+    </div>
+    <div class="stage" id="mapView">
+      <svg id="map" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="g8" width="8" height="8" patternUnits="userSpaceOnUse">
+            <rect width="8" height="8" fill="#181c21"/>
+            <path d="M8 0H0V8" fill="none" stroke="#262c34" stroke-width=".12"/>
+          </pattern>
+          <pattern id="g32" width="32" height="32" patternUnits="userSpaceOnUse">
+            <rect width="32" height="32" fill="url(#g8)"/>
+            <path d="M32 0H0V32" fill="none" stroke="#323a44" stroke-width=".22"/>
+          </pattern>
+          <marker id="arr" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M0 1L9 5L0 9z" fill="context-stroke"/>
+          </marker>
+        </defs>
+        <g id="world"></g>
+      </svg>
+      <div class="zoom">
+        <button class="btn" id="zIn" aria-label="Zoom in">+</button>
+        <button class="btn" id="zOut" aria-label="Zoom out">−</button>
+      </div>
+      <div class="hint" data-i="hint"></div>
+      <div id="info" hidden></div>
+    </div>
+    <div id="tableView" hidden></div>
+  </main>
+</div>
+
+<div class="modal" id="recModal" hidden>
+  <div class="box wide">
+    <h2 data-i="recTitle"></h2>
+    <p class="note" style="margin:0 0 10px" data-i="recDesc"></p>
+    <div class="recbar"><input type="search" id="recSearch"><label class="check"><input type="checkbox" id="recUsed" checked> <span data-i="onlyUsed"></span></label></div>
+    <div id="recList"></div>
+    <div class="row"><span class="msg" id="recMsg"></span>
+      <button class="btn" id="recStd" data-i="allStd"></button>
+      <button class="btn primary" id="recDone" data-i="done"></button>
+    </div>
+  </div>
+</div>
+<div class="modal" id="modal" hidden>
+  <div class="box">
+    <h2 data-i="share"></h2>
+    <p class="note" style="margin:0 0 10px" data-i="shareDesc"></p>
+    <textarea id="io" spellcheck="false"></textarea>
+    <div class="row"><span class="msg" id="ioMsg"></span>
+      <button class="btn" id="ioClose" data-i="close"></button>
+      <button class="btn" id="ioLoad" data-i="load"></button>
+      <button class="btn primary" id="ioCopy" data-i="copy"></button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================= TEXTS ================= */
+const L10N={
+nl:{brandA:'Fabrieks<span>planner</span>',brandSub:'Satisfactory-calculator met plattegrond op schaal',whatMake:'Wat wil je maken?',addProduct:'+ Product toevoegen',perMinNote:'Aantallen per minuut.',
+settings:'Instellingen',miner:'Miner',purity:'Zuiverheid nodes',impure:'Onzuiver',normal:'Normaal',pure:'Zuiver',clock:'Kloksnelheid',clockEven:'Gelijk verdeeld',clockFill:'Vol + één restmachine',
+gap:'Ruimte tussen machines',perRow:'Max. machines per rij',unlimited:'Onbeperkt',floorsSet:'Verdiepingen',oneFloor:'1 (geen)',snap:'Vastklikken op foundations (8 m)',
+overview:'Overzicht',power:'Vermogen',machines:'Machines',area:'Oppervlak',lines:'Productielijnen',rawH:'Grondstoffen',surplusH:'Overschot',buildingsH:'Gebouwen',
+dataNote:'Recepten uit Satisfactory 1.0; kies alternates via de knop Recepten. Bijproducten worden waar mogelijk hergebruikt. Gebouwmaten zijn bij benadering; vermogen van Particle Accelerator, Converter en Quantum Encoder is een gemiddelde.',
+tabMap:'Plattegrond',tabTable:'Productietabel',auto:'Auto-indeling',fit:'Alles in beeld',share:'Opslaan / delen',legend:'1 vak = 1 foundation (8×8 m)',
+hint:'Sleep een productielijn om hem te verplaatsen · R = draaien · Shift = per meter · scroll = zoomen',
+shareDesc:'Kopieer deze code om je fabriek te bewaren of te delen. Plak een code en kies Laden om een fabriek te openen.',close:'Sluiten',load:'Laden',copy:'Kopiëren',copied:'Gekopieerd.',
+copyFail:'Kopiëren werd geblokkeerd: de tekst is geselecteerd, gebruik Ctrl/Cmd+C.',loadFail:'Deze code kon niet gelezen worden.',
+floor:'Verdieping',floorShort:'Verd.',ground:'BG',groundLong:'Begane grond',floorN:'Verdieping {0}',floorsWord:'verd.',
+rawBlock:'Grondstof',rawNote:'Extractors moeten op een node staan; dit blok markeert waar de band je fabriek binnenkomt.',rotate:'Draai 90° (R)',backAuto:'Terug naar auto',
+inputs:'Invoer',goesTo:'Gaat naar',endProduct:'Eindproduct',surplus:'Overschot',machinesH:'Machines',recipe:'Recept',avg:'gem.',up:'Omhoog',down:'Omlaag',
+thProduct:'Product',thRate:'Per minuut',thBuilding:'Gebouw',thCount:'Aantal',thClock:'Kloksnelheid',thInput:'Invoer',thPower:'Vermogen',thFloor:'Verd.',rawWord:'grondstof',
+empty:'Kies links een product om te beginnen.',nothing:'Nog niets gekozen',each:'elk',external:'Externe aanvoer',plant:'Kerncentrale (afval)',
+belt:'Band Mk',pipe:'Pijp Mk',fromF:'van',toF:'naar',tierAll:'Tier 0–6',product:'Product',perMin:'Per minuut',wellNote:'(Pressurizer niet meegeteld)',recipesBtn:'Recepten',recTitle:'Recepten kiezen',recDesc:'Kies per product welk recept je fabriek gebruikt. Alternates (ALT) unlock je in de game met Hard Drives.',recSearch:'Zoek product of recept…',onlyUsed:'Alleen producten in deze fabriek',allStd:'Alles standaard',done:'Klaar',standard:'Standaard',noMatch:'Geen recepten gevonden.',noConv:'Let op: deze receptcombinatie vormt een kringloop die niet sluit; de getallen kunnen niet kloppen.'},
+en:{brandA:'Factory <span>Planner</span>',brandSub:'Satisfactory calculator with a to-scale floor plan',whatMake:'What do you want to make?',addProduct:'+ Add product',perMinNote:'Amounts per minute.',
+settings:'Settings',miner:'Miner',purity:'Node purity',impure:'Impure',normal:'Normal',pure:'Pure',clock:'Clock speed',clockEven:'Evenly split',clockFill:'Full + one remainder',
+gap:'Space between machines',perRow:'Max. machines per row',unlimited:'Unlimited',floorsSet:'Floors',oneFloor:'1 (none)',snap:'Snap to foundations (8 m)',
+overview:'Overview',power:'Power',machines:'Machines',area:'Footprint',lines:'Production lines',rawH:'Raw resources',surplusH:'Surplus',buildingsH:'Buildings',
+dataNote:'Satisfactory 1.0 recipes; pick alternates with the Recipes button. Byproducts are reused where possible. Building sizes are approximate; Particle Accelerator, Converter and Quantum Encoder power is an average.',
+tabMap:'Floor plan',tabTable:'Production table',auto:'Auto layout',fit:'Fit to view',share:'Save / share',legend:'1 square = 1 foundation (8×8 m)',
+hint:'Drag a production line to move it · R = rotate · Shift = per metre · scroll = zoom',
+shareDesc:'Copy this code to keep or share your factory. Paste a code and choose Load to open a factory.',close:'Close',load:'Load',copy:'Copy',copied:'Copied.',
+copyFail:'Copying was blocked: the text is selected, use Ctrl/Cmd+C.',loadFail:'This code could not be read.',
+floor:'Floor',floorShort:'Floor',ground:'G',groundLong:'Ground floor',floorN:'Floor {0}',floorsWord:'floors',
+rawBlock:'Raw resource',rawNote:'Extractors must sit on a node; this block marks where the belt enters your factory.',rotate:'Rotate 90° (R)',backAuto:'Back to auto',
+inputs:'Inputs',goesTo:'Goes to',endProduct:'End product',surplus:'Surplus',machinesH:'Machines',recipe:'Recipe',avg:'avg.',up:'Up',down:'Down',
+thProduct:'Product',thRate:'Per minute',thBuilding:'Building',thCount:'Count',thClock:'Clock speed',thInput:'Inputs',thPower:'Power',thFloor:'Floor',rawWord:'raw resource',
+empty:'Pick a product on the left to get started.',nothing:'Nothing selected yet',each:'each',external:'External supply',plant:'Nuclear Power Plant (waste)',
+belt:'Belt Mk',pipe:'Pipe Mk',fromF:'from',toF:'to',tierAll:'Tier 0–6',product:'Product',perMin:'Per minute',wellNote:'(Pressurizer not included)',recipesBtn:'Recipes',recTitle:'Choose recipes',recDesc:'Pick which recipe your factory uses for each product. Alternates (ALT) are unlocked in-game with Hard Drives.',recSearch:'Search product or recipe…',onlyUsed:'Only products in this factory',allStd:'All standard',done:'Done',standard:'Standard',noMatch:'No recipes found.',noConv:'Warning: this recipe combination forms a loop that does not close; the numbers may be wrong.'}
+};
+function t(k,a){let s=(L10N[state.lang]||L10N.nl)[k];if(s==null)s=L10N.nl[k]!=null?L10N.nl[k]:k;if(a!=null)s=s.replace('{0}',a);return s;}
+
+/* ================= DATA ================= */
+const B={
+  smelter:{n:'Smelter',w:6,l:9,mw:4,c:'#d9773b'},
+  foundry:{n:'Foundry',w:10,l:9,mw:16,c:'#c9503c'},
+  constr:{n:'Constructor',w:8,l:10,mw:4,c:'#e0a43a'},
+  assembler:{n:'Assembler',w:10,l:15,mw:15,c:'#8fb34a'},
+  manufacturer:{n:'Manufacturer',w:18,l:20,mw:55,c:'#4fa39a'},
+  refinery:{n:'Refinery',w:10,l:20,mw:30,c:'#5a86c9'},
+  blender:{n:'Blender',w:18,l:16,mw:75,c:'#7b74d1'},
+  accel:{n:'Particle Accelerator',w:24,l:38,mw:500,c:'#b65fb8',v:1},
+  converter:{n:'Converter',w:16,l:16,mw:250,c:'#c75f86',v:1},
+  encoder:{n:'Quantum Encoder',w:22,l:48,mw:1000,c:'#d4589a',v:1}
+};
+const ITEMS={},RECIPES={};
+function item(id,n,o){ITEMS[id]=Object.assign({id,n},ITEMS[id]||{},o||{});}
+const FLUIDS=new Set(['crude-oil','water','nitrogen-gas','heavy-oil-residue','fuel','sulfuric-acid','alumina-solution','nitric-acid','dark-matter-residue','excited-photonic-matter']);
+[['iron-ore','Iron Ore'],['copper-ore','Copper Ore'],['limestone','Limestone'],['coal','Coal'],['caterium-ore','Caterium Ore'],['raw-quartz','Raw Quartz'],
+ ['sulfur','Sulfur'],['bauxite','Bauxite'],['uranium','Uranium'],['sam','SAM'],['crude-oil','Crude Oil'],['water','Water'],['nitrogen-gas','Nitrogen Gas'],['uranium-waste','Uranium Waste']]
+ .forEach(([id,n])=>item(id,n,{raw:1}));
+item('polymer-resin','Polymer Resin');
+function rec(id,name,tier,b,ins,out,extra,o){
+  item(id,name,{tier});
+  (RECIPES[id]=RECIPES[id]||[]).push(Object.assign({name:(o&&o.name)||name,b,in:ins,out:Object.assign({[id]:out},extra||{})},o||{}));
+}
+// Tier 0–6
+rec('iron-ingot','Iron Ingot',6,'smelter',{'iron-ore':30},30);
+rec('copper-ingot','Copper Ingot',6,'smelter',{'copper-ore':30},30);
+rec('caterium-ingot','Caterium Ingot',6,'smelter',{'caterium-ore':45},15);
+rec('steel-ingot','Steel Ingot',6,'foundry',{'iron-ore':45,'coal':45},45);
+rec('concrete','Concrete',6,'constr',{'limestone':45},15);
+rec('iron-plate','Iron Plate',6,'constr',{'iron-ingot':30},20);
+rec('iron-rod','Iron Rod',6,'constr',{'iron-ingot':15},15);
+rec('screw','Screw',6,'constr',{'iron-rod':10},40);
+rec('wire','Wire',6,'constr',{'copper-ingot':15},30);
+rec('cable','Cable',6,'constr',{'wire':60},30);
+rec('copper-sheet','Copper Sheet',6,'constr',{'copper-ingot':20},10);
+rec('steel-beam','Steel Beam',6,'constr',{'steel-ingot':60},15);
+rec('steel-pipe','Steel Pipe',6,'constr',{'steel-ingot':30},20);
+rec('quickwire','Quickwire',6,'constr',{'caterium-ingot':12},60);
+rec('silica','Silica',6,'constr',{'raw-quartz':22.5},37.5);
+rec('quartz-crystal','Quartz Crystal',6,'constr',{'raw-quartz':37.5},22.5);
+rec('plastic','Plastic',6,'refinery',{'crude-oil':30},20,{'heavy-oil-residue':10});
+rec('rubber','Rubber',6,'refinery',{'crude-oil':30},20,{'heavy-oil-residue':20});
+rec('fuel','Fuel',6,'refinery',{'crude-oil':60},40,{'polymer-resin':30});
+rec('heavy-oil-residue','Heavy Oil Residue',6,'refinery',{'crude-oil':30},40,{'polymer-resin':20});
+rec('petroleum-coke','Petroleum Coke',6,'refinery',{'heavy-oil-residue':40},120);
+rec('empty-canister','Empty Canister',6,'constr',{'plastic':30},60);
+rec('reinforced-iron-plate','Reinforced Iron Plate',6,'assembler',{'iron-plate':30,'screw':60},5);
+rec('rotor','Rotor',6,'assembler',{'iron-rod':20,'screw':100},4);
+rec('modular-frame','Modular Frame',6,'assembler',{'reinforced-iron-plate':3,'iron-rod':12},2);
+rec('smart-plating','Smart Plating',6,'assembler',{'reinforced-iron-plate':2,'rotor':2},2);
+rec('encased-industrial-beam','Encased Industrial Beam',6,'assembler',{'steel-beam':18,'concrete':36},6);
+rec('stator','Stator',6,'assembler',{'steel-pipe':15,'wire':40},5);
+rec('motor','Motor',6,'assembler',{'rotor':10,'stator':10},5);
+rec('versatile-framework','Versatile Framework',6,'assembler',{'modular-frame':2.5,'steel-beam':30},5);
+rec('automated-wiring','Automated Wiring',6,'assembler',{'stator':2.5,'cable':50},2.5);
+rec('circuit-board','Circuit Board',6,'assembler',{'copper-sheet':15,'plastic':30},7.5);
+rec('ai-limiter','AI Limiter',6,'assembler',{'copper-sheet':25,'quickwire':100},5);
+rec('computer','Computer',6,'manufacturer',{'circuit-board':10,'cable':20,'plastic':40},2.5);
+rec('heavy-modular-frame','Heavy Modular Frame',6,'manufacturer',{'modular-frame':10,'steel-pipe':40,'encased-industrial-beam':10,'screw':240},2);
+rec('modular-engine','Modular Engine',6,'manufacturer',{'motor':2,'rubber':15,'smart-plating':2},1);
+rec('crystal-oscillator','Crystal Oscillator',6,'manufacturer',{'quartz-crystal':18,'cable':14,'reinforced-iron-plate':2.5},1);
+rec('high-speed-connector','High-Speed Connector',6,'manufacturer',{'quickwire':210,'cable':37.5,'circuit-board':3.75},3.75);
+rec('adaptive-control-unit','Adaptive Control Unit',6,'manufacturer',{'automated-wiring':7.5,'circuit-board':5,'heavy-modular-frame':1,'computer':2},1);
+// Tier 7
+rec('sulfuric-acid','Sulfuric Acid',7,'refinery',{'sulfur':50,'water':50},50);
+rec('alumina-solution','Alumina Solution',7,'refinery',{'bauxite':120,'water':180},120,{'silica':50});
+rec('aluminum-scrap','Aluminum Scrap',7,'refinery',{'alumina-solution':240,'coal':120},360,{'water':120});
+rec('aluminum-ingot','Aluminum Ingot',7,'foundry',{'aluminum-scrap':90,'silica':75},60);
+rec('alclad-aluminum-sheet','Alclad Aluminum Sheet',7,'assembler',{'aluminum-ingot':30,'copper-ingot':10},30);
+rec('aluminum-casing','Aluminum Casing',7,'constr',{'aluminum-ingot':90},60);
+rec('battery','Battery',7,'blender',{'sulfuric-acid':50,'alumina-solution':40,'aluminum-casing':20},20,{'water':30});
+rec('heat-sink','Heat Sink',7,'assembler',{'alclad-aluminum-sheet':37.5,'copper-sheet':22.5},7.5);
+rec('cooling-system','Cooling System',7,'blender',{'heat-sink':12,'rubber':12,'water':30,'nitrogen-gas':150},6);
+rec('fused-modular-frame','Fused Modular Frame',7,'blender',{'heavy-modular-frame':1.5,'aluminum-casing':75,'nitrogen-gas':37.5},1.5);
+rec('radio-control-unit','Radio Control Unit',7,'manufacturer',{'aluminum-casing':40,'crystal-oscillator':1.25,'computer':2.5},2.5);
+rec('turbo-motor','Turbo Motor',7,'manufacturer',{'cooling-system':7.5,'radio-control-unit':3.75,'motor':7.5,'rubber':45},1.875);
+rec('supercomputer','Supercomputer',7,'manufacturer',{'computer':7.5,'ai-limiter':3.75,'high-speed-connector':5.625,'plastic':52.5},1.875);
+rec('assembly-director-system','Assembly Director System',7,'assembler',{'adaptive-control-unit':1.5,'supercomputer':.75},.75);
+// Tier 8
+rec('nitric-acid','Nitric Acid',8,'blender',{'nitrogen-gas':120,'water':30,'iron-plate':10},30);
+rec('encased-uranium-cell','Encased Uranium Cell',8,'blender',{'uranium':50,'concrete':15,'sulfuric-acid':40},25,{'sulfuric-acid':10});
+rec('electromagnetic-control-rod','Electromagnetic Control Rod',8,'assembler',{'stator':6,'ai-limiter':4},4);
+rec('uranium-fuel-rod','Uranium Fuel Rod',8,'manufacturer',{'encased-uranium-cell':20,'encased-industrial-beam':1.2,'electromagnetic-control-rod':2},.4);
+rec('non-fissile-uranium','Non-Fissile Uranium',8,'blender',{'uranium-waste':37.5,'silica':25,'nitric-acid':15,'sulfuric-acid':15},50,{'water':15});
+rec('plutonium-pellet','Plutonium Pellet',8,'accel',{'non-fissile-uranium':100,'uranium-waste':25},30,null,{mw:500});
+rec('encased-plutonium-cell','Encased Plutonium Cell',8,'assembler',{'plutonium-pellet':10,'concrete':20},5);
+rec('plutonium-fuel-rod','Plutonium Fuel Rod',8,'manufacturer',{'encased-plutonium-cell':7.5,'steel-beam':4.5,'electromagnetic-control-rod':1.5,'heat-sink':2.5},.25);
+rec('pressure-conversion-cube','Pressure Conversion Cube',8,'assembler',{'fused-modular-frame':1,'radio-control-unit':2},1);
+rec('copper-powder','Copper Powder',8,'constr',{'copper-ingot':300},50);
+rec('nuclear-pasta','Nuclear Pasta',8,'accel',{'copper-powder':100,'pressure-conversion-cube':.5},.5,null,{mw:1000});
+rec('magnetic-field-generator','Magnetic Field Generator',8,'assembler',{'versatile-framework':2.5,'electromagnetic-control-rod':1},1);
+rec('thermal-propulsion-rocket','Thermal Propulsion Rocket',8,'manufacturer',{'modular-engine':2.5,'turbo-motor':1,'cooling-system':3,'fused-modular-frame':1},1);
+// Tier 9
+rec('reanimated-sam','Reanimated SAM',9,'constr',{'sam':120},30);
+rec('ficsite-ingot','Ficsite Ingot',9,'converter',{'reanimated-sam':60,'aluminum-ingot':120},30,null,{name:'Ficsite Ingot (Aluminum)'});
+rec('ficsite-ingot','Ficsite Ingot',9,'converter',{'reanimated-sam':45,'caterium-ingot':60},15,null,{name:'Ficsite Ingot (Caterium)'});
+rec('ficsite-ingot','Ficsite Ingot',9,'converter',{'reanimated-sam':40,'iron-ingot':240},10,null,{name:'Ficsite Ingot (Iron)'});
+rec('ficsite-trigon','Ficsite Trigon',9,'constr',{'ficsite-ingot':10},30);
+rec('diamonds','Diamonds',9,'accel',{'coal':600},30,null,{mw:500});
+rec('time-crystal','Time Crystal',9,'converter',{'diamonds':12},6);
+rec('dark-matter-residue','Dark Matter Residue',9,'converter',{'reanimated-sam':50},100);
+rec('excited-photonic-matter','Excited Photonic Matter',9,'converter',{},200);
+rec('dark-matter-crystal','Dark Matter Crystal',9,'accel',{'diamonds':30,'dark-matter-residue':150},30,null,{mw:1000});
+rec('superposition-oscillator','Superposition Oscillator',9,'encoder',{'dark-matter-crystal':30,'crystal-oscillator':5,'alclad-aluminum-sheet':45,'excited-photonic-matter':125},5,{'dark-matter-residue':125});
+rec('neural-quantum-processor','Neural-Quantum Processor',9,'encoder',{'time-crystal':15,'supercomputer':3,'ficsite-trigon':45,'excited-photonic-matter':75},3,{'dark-matter-residue':75});
+rec('ai-expansion-server','AI Expansion Server',9,'encoder',{'magnetic-field-generator':4,'neural-quantum-processor':4,'superposition-oscillator':4,'excited-photonic-matter':100},4,{'dark-matter-residue':100});
+rec('singularity-cell','Singularity Cell',9,'manufacturer',{'nuclear-pasta':1,'dark-matter-crystal':20,'iron-plate':100,'concrete':200},10);
+rec('ballistic-warp-drive','Ballistic Warp Drive',9,'manufacturer',{'thermal-propulsion-rocket':1,'singularity-cell':5,'superposition-oscillator':2,'dark-matter-crystal':40},1);
+rec('biochemical-sculptor','Biochemical Sculptor',9,'blender',{'assembly-director-system':.5,'ficsite-trigon':40,'water':10},2);
+// ---------- Alternate recipes (Satisfactory 1.0, per minute) ----------
+function alt(id,name,b,ins,outs,mw){
+  if(!ITEMS[id]||ITEMS[id].tier==null)item(id,ITEMS[id]?ITEMS[id].n:id,{tier:6});
+  (RECIPES[id]=RECIPES[id]||[]).push({name,b,in:ins,out:outs,alt:1,mw});
+}
+item('compacted-coal','Compacted Coal',{tier:6});item('turbofuel','Turbofuel',{tier:6});item('dissolved-silica','Dissolved Silica');
+FLUIDS.add('turbofuel');FLUIDS.add('dissolved-silica');
+const A=(id,name,b,ins,out,extra,mw)=>alt(id,name,b,ins,Object.assign({[id]:out},extra||{}),mw);
+A('iron-ingot','Basic Iron Ingot','foundry',{'iron-ore':25,'limestone':40},50);
+A('iron-ingot','Iron Alloy Ingot','foundry',{'iron-ore':40,'copper-ore':10},75);
+A('iron-ingot','Leached Iron Ingot','refinery',{'iron-ore':50,'sulfuric-acid':10},100);
+A('iron-ingot','Pure Iron Ingot','refinery',{'iron-ore':35,'water':20},65);
+A('copper-ingot','Copper Alloy Ingot','foundry',{'copper-ore':50,'iron-ore':50},100);
+A('copper-ingot','Leached Copper Ingot','refinery',{'copper-ore':45,'sulfuric-acid':25},110);
+A('copper-ingot','Pure Copper Ingot','refinery',{'copper-ore':15,'water':10},37.5);
+A('copper-ingot','Tempered Copper Ingot','foundry',{'copper-ore':25,'petroleum-coke':40},60);
+A('caterium-ingot','Leached Caterium Ingot','refinery',{'caterium-ore':54,'sulfuric-acid':30},36);
+A('caterium-ingot','Pure Caterium Ingot','refinery',{'caterium-ore':24,'water':24},12);
+A('caterium-ingot','Tempered Caterium Ingot','foundry',{'caterium-ore':45,'petroleum-coke':15},22.5);
+A('steel-ingot','Coke Steel Ingot','foundry',{'iron-ore':75,'petroleum-coke':75},100);
+A('steel-ingot','Compacted Steel Ingot','foundry',{'iron-ore':5,'compacted-coal':2.5},10);
+A('steel-ingot','Solid Steel Ingot','foundry',{'iron-ingot':40,'coal':40},60);
+A('aluminum-ingot','Pure Aluminum Ingot','smelter',{'aluminum-scrap':60},30);
+A('compacted-coal','Compacted Coal','assembler',{'coal':25,'sulfur':25},25);
+A('concrete','Fine Concrete','assembler',{'silica':15,'limestone':60},50);
+A('concrete','Rubber Concrete','assembler',{'limestone':100,'rubber':20},90);
+A('concrete','Wet Concrete','refinery',{'limestone':120,'water':100},80);
+A('iron-plate','Coated Iron Plate','assembler',{'iron-ingot':37.5,'plastic':7.5},75);
+A('iron-plate','Steel Cast Plate','foundry',{'iron-ingot':15,'steel-ingot':15},45);
+A('iron-rod','Aluminum Rod','constr',{'aluminum-ingot':7.5},52.5);
+A('iron-rod','Steel Rod','constr',{'steel-ingot':12},48);
+A('screw','Cast Screws','constr',{'iron-ingot':12.5},50);
+A('screw','Steel Screws','constr',{'steel-beam':5},260);
+A('wire','Caterium Wire','constr',{'caterium-ingot':15},120);
+A('wire','Fused Wire','assembler',{'copper-ingot':12,'caterium-ingot':3},90);
+A('wire','Iron Wire','constr',{'iron-ingot':12.5},22.5);
+A('cable','Coated Cable','refinery',{'wire':37.5,'heavy-oil-residue':15},67.5);
+A('cable','Insulated Cable','assembler',{'wire':45,'rubber':30},100);
+A('cable','Quickwire Cable','assembler',{'quickwire':7.5,'rubber':5},27.5);
+A('copper-sheet','Steamed Copper Sheet','refinery',{'copper-ingot':22.5,'water':22.5},22.5);
+A('steel-beam','Aluminum Beam','constr',{'aluminum-ingot':22.5},22.5);
+A('steel-beam','Molded Beam','foundry',{'steel-ingot':120,'concrete':80},45);
+A('steel-pipe','Iron Pipe','constr',{'iron-ingot':100},25);
+A('steel-pipe','Molded Steel Pipe','foundry',{'steel-ingot':50,'concrete':30},50);
+A('quickwire','Fused Quickwire','assembler',{'caterium-ingot':7.5,'copper-ingot':37.5},90);
+A('silica','Cheap Silica','assembler',{'raw-quartz':22.5,'limestone':37.5},52.5);
+A('silica','Distilled Silica','blender',{'dissolved-silica':120,'limestone':50,'water':100},270,{'water':80});
+A('quartz-crystal','Fused Quartz Crystal','foundry',{'raw-quartz':75,'coal':36},54);
+A('quartz-crystal','Pure Quartz Crystal','refinery',{'raw-quartz':67.5,'water':37.5},52.5);
+A('quartz-crystal','Quartz Purification','refinery',{'raw-quartz':120,'nitric-acid':10},75,{'dissolved-silica':60});
+A('plastic','Recycled Plastic','refinery',{'rubber':30,'fuel':30},60);
+A('rubber','Recycled Rubber','refinery',{'plastic':30,'fuel':30},60);
+A('fuel','Diluted Fuel','blender',{'heavy-oil-residue':50,'water':100},100);
+A('polymer-resin','Polymer Resin','refinery',{'crude-oil':60},130,{'heavy-oil-residue':20});
+A('turbofuel','Turbofuel','refinery',{'fuel':22.5,'compacted-coal':15},18.75);
+A('turbofuel','Turbo Heavy Fuel','refinery',{'heavy-oil-residue':37.5,'compacted-coal':30},30);
+A('turbofuel','Turbo Blend Fuel','blender',{'fuel':15,'heavy-oil-residue':30,'sulfur':22.5,'petroleum-coke':22.5},45);
+A('empty-canister','Coated Iron Canister','assembler',{'iron-plate':30,'copper-sheet':15},60);
+A('empty-canister','Steel Canister','constr',{'steel-ingot':40},40);
+A('reinforced-iron-plate','Adhered Iron Plate','assembler',{'iron-plate':11.25,'rubber':3.75},3.75);
+A('reinforced-iron-plate','Bolted Iron Plate','assembler',{'iron-plate':90,'screw':250},15);
+A('reinforced-iron-plate','Stitched Iron Plate','assembler',{'iron-plate':18.75,'wire':37.5},5.625);
+A('rotor','Copper Rotor','assembler',{'copper-sheet':22.5,'screw':195},11.25);
+A('rotor','Steel Rotor','assembler',{'steel-pipe':10,'wire':30},5);
+A('modular-frame','Bolted Frame','assembler',{'reinforced-iron-plate':7.5,'screw':140},5);
+A('modular-frame','Steeled Frame','assembler',{'reinforced-iron-plate':2,'steel-pipe':10},3);
+A('smart-plating','Plastic Smart Plating','manufacturer',{'reinforced-iron-plate':2.5,'rotor':2.5,'plastic':7.5},5);
+A('encased-industrial-beam','Encased Industrial Pipe','assembler',{'steel-pipe':24,'concrete':20},4);
+A('stator','Quickwire Stator','assembler',{'steel-pipe':16,'quickwire':60},8);
+A('motor','Electric Motor','assembler',{'electromagnetic-control-rod':3.75,'rotor':7.5},7.5);
+A('motor','Rigor Motor','manufacturer',{'rotor':3.75,'stator':3.75,'crystal-oscillator':1.25},7.5);
+A('versatile-framework','Flexible Framework','manufacturer',{'modular-frame':3.75,'steel-beam':22.5,'rubber':30},7.5);
+A('automated-wiring','Automated Speed Wiring','manufacturer',{'stator':3.75,'wire':75,'high-speed-connector':1.875},7.5);
+A('circuit-board','Caterium Circuit Board','assembler',{'plastic':12.5,'quickwire':37.5},8.75);
+A('circuit-board','Electrode Circuit Board','assembler',{'rubber':20,'petroleum-coke':40},5);
+A('circuit-board','Silicon Circuit Board','assembler',{'copper-sheet':27.5,'silica':27.5},12.5);
+A('ai-limiter','Plastic AI Limiter','assembler',{'quickwire':120,'plastic':28},8);
+A('computer','Caterium Computer','manufacturer',{'circuit-board':15,'quickwire':52.5,'rubber':22.5},3.75);
+A('computer','Crystal Computer','assembler',{'circuit-board':5,'crystal-oscillator':5/3},10/3);
+A('heavy-modular-frame','Heavy Encased Frame','manufacturer',{'modular-frame':7.5,'encased-industrial-beam':9.375,'steel-pipe':33.75,'concrete':20.625},2.8125);
+A('heavy-modular-frame','Heavy Flexible Frame','manufacturer',{'modular-frame':18.75,'encased-industrial-beam':11.25,'rubber':75,'screw':390},3.75);
+A('crystal-oscillator','Insulated Crystal Oscillator','manufacturer',{'quartz-crystal':18.75,'rubber':13.125,'ai-limiter':1.875},1.875);
+A('high-speed-connector','Silicon High-Speed Connector','manufacturer',{'quickwire':90,'silica':37.5,'circuit-board':3},3);
+A('alumina-solution','Sloppy Alumina','refinery',{'bauxite':200,'water':200},240);
+A('aluminum-scrap','Electrode Aluminum Scrap','refinery',{'alumina-solution':180,'petroleum-coke':60},300,{'water':105});
+A('aluminum-scrap','Instant Scrap','blender',{'bauxite':150,'coal':100,'sulfuric-acid':50,'water':60},300,{'water':50});
+A('aluminum-casing','Alclad Casing','assembler',{'aluminum-ingot':150,'copper-ingot':75},112.5);
+A('battery','Classic Battery','manufacturer',{'sulfur':45,'alclad-aluminum-sheet':52.5,'plastic':60,'wire':90},30);
+A('heat-sink','Heat Exchanger','assembler',{'aluminum-casing':30,'rubber':30},10);
+A('cooling-system','Cooling Device','blender',{'heat-sink':10,'motor':2.5,'nitrogen-gas':60},5);
+A('fused-modular-frame','Heat-Fused Frame','blender',{'heavy-modular-frame':3,'aluminum-ingot':150,'nitric-acid':24,'fuel':30},3);
+A('radio-control-unit','Radio Connection Unit','manufacturer',{'heat-sink':15,'high-speed-connector':7.5,'quartz-crystal':45},3.75);
+A('radio-control-unit','Radio Control System','manufacturer',{'crystal-oscillator':1.5,'circuit-board':15,'aluminum-casing':90,'rubber':45},4.5);
+A('turbo-motor','Turbo Electric Motor','manufacturer',{'motor':6.5625,'radio-control-unit':8.4375,'electromagnetic-control-rod':4.6875,'rotor':6.5625},2.8125);
+A('supercomputer','OC Supercomputer','assembler',{'radio-control-unit':6,'cooling-system':6},3);
+A('supercomputer','Super-State Computer','manufacturer',{'computer':7.2,'electromagnetic-control-rod':2.4,'battery':24,'wire':60},2.4);
+A('electromagnetic-control-rod','Electromagnetic Connection Rod','assembler',{'stator':8,'high-speed-connector':4},8);
+A('encased-uranium-cell','Infused Uranium Cell','manufacturer',{'uranium':25,'silica':15,'sulfur':25,'quickwire':75},20);
+A('uranium-fuel-rod','Uranium Fuel Unit','manufacturer',{'encased-uranium-cell':20,'electromagnetic-control-rod':2,'crystal-oscillator':.6,'rotor':2},.6);
+A('non-fissile-uranium','Fertile Uranium','blender',{'uranium':25,'uranium-waste':25,'nitric-acid':15,'sulfuric-acid':25},100,{'water':40});
+A('encased-plutonium-cell','Instant Plutonium Cell','accel',{'non-fissile-uranium':75,'aluminum-casing':10},10,null,500);
+A('plutonium-fuel-rod','Plutonium Fuel Unit','assembler',{'encased-plutonium-cell':10,'pressure-conversion-cube':.5},.5);
+A('diamonds','Cloudy Diamonds','accel',{'coal':240,'limestone':480},20,null,500);
+A('diamonds','Oil-Based Diamonds','accel',{'crude-oil':200},40,null,500);
+A('diamonds','Petroleum Diamonds','accel',{'petroleum-coke':720},30,null,500);
+A('diamonds','Pink Diamonds','converter',{'coal':120,'quartz-crystal':45},15);
+A('dark-matter-crystal','Dark Matter Crystallization','accel',{'dark-matter-residue':200},20,null,1000);
+A('dark-matter-crystal','Dark Matter Trap','accel',{'time-crystal':30,'dark-matter-residue':150},60,null,1000);
+for(const id in ITEMS)if(FLUIDS.has(id))ITEMS[id].fluid=1;
+
+const BELTS=[60,120,270,480,780,1200],PIPES=[300,600];
+
+/* ================= STATE ================= */
+const KEY='sf-fabrieksplanner-v2';
+const DEFAULT={lang:'nl',targets:[{item:'modular-frame',rate:5}],miner:2,purity:1,clockMode:'even',gap:2,perRow:8,floors:1,cur:0,snap:true,rc:{},pos:{}};
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&Array.isArray(s.targets))return Object.assign(JSON.parse(JSON.stringify(DEFAULT)),s);}catch(e){}return null;}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}}
+let state=load()||JSON.parse(JSON.stringify(DEFAULT));
+for(const k in state.rc)if(typeof state.rc[k]==='number'){const r=RECIPES[k]&&RECIPES[k][state.rc[k]];if(r)state.rc[k]=r.name;else delete state.rc[k];}
+if(!load()&&/^en/i.test(navigator.language||''))state.lang='en';
+let model=null,sel=null,WG={},view={k:5,tx:60,ty:60};
+
+const $=s=>document.querySelector(s);
+const nf=()=>new Intl.NumberFormat(state.lang==='en'?'en-US':'nl-NL',{maximumFractionDigits:2});
+const fmt=x=>nf().format(Math.abs(x)<1e-9?0:x);
+const pct=c=>nf().format(Math.round(c*1000)/10)+'%';
+const unit=id=>ITEMS[id]&&ITEMS[id].fluid?' m³/min':'/min';
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function hue(id){let h=0;for(const ch of id)h=(h*31+ch.charCodeAt(0))>>>0;return h;}
+function col(id){if(ITEMS[id]&&ITEMS[id].fluid)return `hsl(${195+(hue(id)%5)*8} 70% 62%)`;return `hsl(${(hue(id)*47)%360} 62% 62%)`;}
+const snapUp=x=>Math.ceil(x/8-1e-9)*8;
+const fname=i=>i===0?t('ground'):String(i);
+const flong=i=>i===0?t('groundLong'):t('floorN',i);
+
+function R(id){const l=RECIPES[id];if(!l)return null;const w=state.rc[id];return l.find(r=>r.name===w)||l.find(r=>!r.alt)||l[0];}
+function altCount(){let n=0;for(const id in RECIPES){const r=R(id);if(r.alt&&RECIPES[id].some(x=>!x.alt))n++;}return n;}
+function recSummary(r){
+  const part=o=>Object.entries(o).map(([k,v])=>`${fmt(v)} ${ITEMS[k].n}`).join(' + ');
+  return `${part(r.in)||'—'} → ${part(r.out)} · ${B[r.b].n}`;
+}
+let dmemo={};
+function depth(id){if(dmemo[id]!=null)return dmemo[id];dmemo[id]=0;const r=R(id);const ks=r?Object.keys(r.in):[];
+  return dmemo[id]=r?1+(ks.length?Math.max(...ks.map(depth)):0):0;}
+function sortedCraft(){return Object.keys(RECIPES).sort((a,b)=>ITEMS[a].n.localeCompare(ITEMS[b].n));}
+
+/* ================= CALCULATION ================= */
+function extractor(id){
+  const pur=[0.5,1,2][state.purity];
+  if(id==='water')return{n:'Water Extractor',per:120,mw:20};
+  if(id==='crude-oil')return{n:'Oil Extractor',per:120*pur,mw:40};
+  if(id==='nitrogen-gas')return{n:'Resource Well Extractor',per:60*pur,mw:0,note:t('wellNote')};
+  if(id==='uranium-waste')return{n:t('plant'),per:10,mw:0};
+  if(!ITEMS[id].raw)return{n:t('external'),per:Infinity,mw:0};
+  const mk=state.miner;return{n:'Miner Mk'+mk,per:[60,120,240][mk-1]*pur,mw:[5,15,45][mk-1]};
+}
+function clocksFor(exact,count){
+  if(state.clockMode==='even')return Array(count).fill(exact/count);
+  const a=[];let r=exact;for(let i=0;i<count;i++){a.push(Math.max(0,Math.min(1,r)));r-=1;}return a;
+}
+// Fixed-point solver: works for chains, byproducts and loops (e.g. Recycled Plastic <-> Recycled Rubber)
+function flows(x,T){
+  const demand=Object.assign({},T),byp={};
+  for(const id in x){const r=R(id),m=x[id];
+    for(const[k,v]of Object.entries(r.in))demand[k]=(demand[k]||0)+v*m;
+    for(const[k,v]of Object.entries(r.out))if(k!==id)byp[k]=(byp[k]||0)+v*m;}
+  return{demand,byp};
+}
+function compute(){
+  const T={};
+  for(const tg of state.targets){if(!RECIPES[tg.item]||!(tg.rate>0))continue;T[tg.item]=(T[tg.item]||0)+tg.rate;}
+  let x={},converged=false;
+  for(let it=0;it<600;it++){
+    const{demand,byp}=flows(x,T),nx={};
+    for(const id in demand){const r=R(id),net=demand[id]-Math.min(demand[id],byp[id]||0);if(r&&net>1e-9)nx[id]=net/r.out[id];}
+    let diff=0;for(const k of new Set([...Object.keys(x),...Object.keys(nx)]))diff+=Math.abs((nx[k]||0)-(x[k]||0));
+    x=nx;if(diff<1e-9){converged=true;break;}
+    if(diff>1e9)break;
+  }
+  const{demand,byp}=flows(x,T),used={},left={},bypBy={},groups=[];
+  for(const k in byp){const u=Math.min(byp[k],demand[k]||0);if(u>1e-9)used[k]=u;if(byp[k]-u>1e-6)left[k]=byp[k]-u;}
+  const ids=Object.keys(demand).sort((a,b)=>depth(b)-depth(a));
+  for(const id of ids){
+    const r=R(id),d=demand[id]-(used[id]||0);
+    if(d<=1e-9)continue;
+    if(!r){
+      const ex=extractor(id),count=Math.max(1,Math.ceil(d/ex.per-1e-6));
+      groups.push({key:'s:'+id,id,kind:'source',rate:d,count,ex,inputs:[],outputs:[{item:id,rate:d}],power:count*ex.mw});
+      continue;
+    }
+    const exact=x[id]||d/r.out[id],count=Math.max(1,Math.ceil(exact-1e-6));
+    const outputs=Object.entries(r.out).map(([k,v])=>({item:k,rate:v*exact}));
+    for(const o of outputs)if(o.item!==id)(bypBy[o.item]=bypBy[o.item]||[]).push({key:'m:'+id,amt:o.rate});
+    const clocks=clocksFor(exact,count),bmw=r.mw||B[r.b].mw;
+    groups.push({key:'m:'+id,id,kind:'machine',b:r.b,rec:r,rate:d,exact,count,clocks,
+      power:clocks.reduce((s,c)=>s+bmw*Math.pow(c,1.321928),0),
+      inputs:Object.entries(r.in).map(([k,v])=>({item:k,rate:v*exact})),outputs});
+  }
+  const prod={},byKey={};for(const g of groups){prod[g.id]=g;byKey[g.key]=g;}
+  return{groups,byp,bypBy,used,left,prod,byKey,converged};
+}
+// who supplies item X to consumers, as shares
+function suppliers(item){
+  const main=model.prod[item],P=main?main.rate:0,U=model.used[item]||0,tot=P+U,out=[];
+  if(tot<=1e-9)return out;
+  if(main)out.push({g:main,share:P/tot});
+  const bp=model.bypBy[item]||[],tb=bp.reduce((s,x)=>s+x.amt,0);
+  if(U>1e-9&&tb>0)for(const x of bp){const g=model.byKey[x.key];if(g)out.push({g,share:U*x.amt/tb/tot});}
+  return out;
+}
+
+/* ================= GEOMETRY ================= */
+function geomLocal(g){
+  if(g.kind==='source')return{U:16,V:8,src:true,outLanes:[{item:g.id,pu:8}]};
+  const b=B[g.b],n=g.count,nIn=g.inputs.length,nOut=g.outputs.length,gap=+state.gap,lane=2.5;
+  const nRows=Math.ceil(n/Math.max(1,+state.perRow||n)),perRow=Math.ceil(n/nRows),multi=nRows>1;
+  const innerU=perRow*b.w+(perRow-1)*gap;
+  const sideL=multi?1.5+nIn*1.1:2,sideR=multi?1.5+nOut*1.1:2;
+  const rowH=nIn*lane+1+b.l+1+nOut*lane,rowGap=3,content=nRows*rowH+(nRows-1)*rowGap;
+  const U=snapUp(innerU+sideL+sideR),V=snapUp(content+2);
+  const pad=(V-content)/2,u0=multi?sideL+(U-innerU-sideL-sideR)/2:(U-innerU)/2,uEnd=u0+innerU;
+  const sIn=Math.min(1.4,(b.w-1)/Math.max(1,nIn)),sOut=Math.min(1.4,(b.w-1)/Math.max(1,nOut));
+  const rows=[],machines=[];
+  for(let r=0;r<nRows;r++){
+    const top=pad+r*(rowH+rowGap),mV=top+nIn*lane+1,cnt=Math.min(perRow,n-r*perRow);
+    const row={mV,inV:g.inputs.map((_,k)=>top+lane*(k+.5)),outV:g.outputs.map((_,j)=>mV+b.l+1+lane*(j+.5)),centers:[]};
+    for(let i=0;i<cnt;i++){const idx=r*perRow+i,m={u:u0+i*(b.w+gap),v:mV,w:b.w,l:b.l,clock:g.clocks[idx]};machines.push(m);row.centers.push(m.u+m.w/2);}
+    rows.push(row);
+  }
+  const inLanes=g.inputs.map((inp,k)=>({item:inp.item,pu:multi?u0-1.2-k*1.1:U*(k+1)/(nIn+1),off:(k-(nIn-1)/2)*sIn}));
+  const outLanes=g.outputs.map((o,j)=>({item:o.item,pu:multi?uEnd+1.2+j*1.1:U*(j+1)/(nOut+1),off:(j-(nOut-1)/2)*sOut}));
+  return{U,V,machines,rows,inLanes,outLanes,b,multi};
+}
+function worldGeom(g){
+  const p=state.pos[g.key],L=geomLocal(g),rot=!!p.rot;
+  const T=(u,v)=>rot?[p.x+v,p.y+u]:[p.x+u,p.y+v];
+  const outIdx={};L.outLanes.forEach((l,j)=>outIdx[l.item]=j);
+  return{L,p,rot,T,x:p.x,y:p.y,f:p.f||0,W:rot?L.V:L.U,H:rot?L.U:L.V,dir:rot?[1,0]:[0,1],
+    outs:L.outLanes.map(l=>T(l.pu,L.V)),outIdx,ins:L.src?[]:L.inLanes.map(l=>T(l.pu,0))};
+}
+
+/* ================= AUTO LAYOUT ================= */
+function layout(force){
+  const gs=model.groups,keys=new Set(gs.map(g=>g.key)),F=+state.floors||1;
+  for(const k in state.pos){const p=state.pos[k];if(force||(!keys.has(k)&&!p.manual))delete state.pos[k];else if((p.f||0)>=F)p.f=F-1;}
+  const auto=gs.filter(g=>!(state.pos[g.key]&&state.pos[g.key].manual));
+  if(!auto.length)return;
+  const tiers={};
+  for(const g of auto){const tt=g.kind==='source'?0:depth(g.id);(tiers[tt]=tiers[tt]||[]).push(g);}
+  const order=Object.keys(tiers).map(Number).sort((a,b)=>a-b);
+  const cx={},consumers={};
+  for(const g of gs)for(const i of g.inputs)(consumers[i.item]=consumers[i.item]||[]).push(g);
+  const bary=(arr,fb)=>{const xs=arr.map(g=>cx[g.key]).filter(v=>v!=null);return xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:fb;};
+  const keyFn=g=>g.kind==='source'?bary(consumers[g.id]||[],g._o*1e3):bary(g.inputs.flatMap(i=>suppliers(i.item).map(s=>s.g)),g._o*1e3);
+  function place(sortFn){
+    const rowsInfo=[];
+    for(const tt of order){
+      const row=tiers[tt];row.forEach((g,i)=>g._o=i);
+      if(sortFn)row.sort((a,b)=>sortFn(a)-sortFn(b));
+      const dims=row.map(g=>{const L=geomLocal(g);return[L.U,L.V];});
+      const total=dims.reduce((s,d)=>s+d[0],0)+16*(row.length-1);
+      let x=Math.round(-total/2/8)*8;const xs=[];
+      row.forEach((g,i)=>{xs.push(x);cx[g.key]=x+dims[i][0]/2;x+=dims[i][0]+16;});
+      rowsInfo.push({row,xs,h:Math.max(...dims.map(d=>d[1]))});
+    }
+    const totalH=rowsInfo.reduce((s,r)=>s+r.h+24,0),target=totalH/F;
+    let cum=0;const yF=Array(F).fill(0);
+    for(const ri of rowsInfo){
+      const f=Math.min(F-1,Math.floor((cum+ri.h/2)/target));cum+=ri.h+24;
+      ri.row.forEach((g,i)=>{state.pos[g.key]={x:ri.xs[i],y:yF[f],rot:0,f};});
+      yF[f]+=ri.h+24;
+    }
+  }
+  place(null);place(keyFn);place(keyFn);
+}
+
+/* ================= MAP RENDER ================= */
+const world=$('#world'),svg=$('#map');
+function beltFor(rate,fluid){
+  const caps=fluid?PIPES:BELTS,nm=fluid?t('pipe'):t('belt');
+  for(let i=0;i<caps.length;i++)if(rate<=caps[i]+1e-6)return nm+(i+1);
+  return Math.ceil(rate/caps[caps.length-1]-1e-9)+'× '+nm+caps.length;
+}
+function route(a,da,b,db,off){
+  const s=4,a1=[a[0]+da[0]*s,a[1]+da[1]*s],b1=[b[0]-db[0]*s,b[1]-db[1]*s],pts=[a,a1];
+  const av=da[1]!==0,bv=db[1]!==0;
+  if(av&&bv){const m=(a1[1]+b1[1])/2+off;pts.push([a1[0],m],[b1[0],m]);}
+  else if(!av&&!bv){const m=(a1[0]+b1[0])/2+off;pts.push([m,a1[1]],[m,b1[1]]);}
+  else if(av)pts.push([a1[0],b1[1]]);else pts.push([b1[0],a1[1]]);
+  pts.push(b1,b);return pts;
+}
+const P=pts=>'M'+pts.map(p=>p[0].toFixed(2)+' '+p[1].toFixed(2)).join('L');
+function line(a,b,c,w,dash){return `<path d="${P([a,b])}" stroke="${c}" stroke-width="${w}" fill="none"${dash?' stroke-dasharray="1 .6"':''} stroke-linecap="round"/>`;}
+function tag(x,y,txt,c,fs){fs=fs||1.25;const tw=txt.length*fs*.5+1.2;
+  return `<g><rect x="${x-tw/2}" y="${y-fs*.92}" width="${tw}" height="${fs*1.84}" rx=".5" fill="#0f1215" stroke="${c}" stroke-width=".12"/><text x="${x}" y="${y+fs*.36}" font-size="${fs}" text-anchor="middle" fill="${c}">${esc(txt)}</text></g>`;}
+function lift(pt,f,incoming,extra){
+  const up=incoming?f<state.cur:f>state.cur;
+  const s=`${incoming?t('fromF'):t('toF')} ${fname(f)}${extra?' · '+extra:''}`;
+  return `<g><rect x="${pt[0]-1.6}" y="${pt[1]-1.6}" width="3.2" height="3.2" rx=".4" fill="#2a2214" stroke="#ffb85c" stroke-width=".25"/><text x="${pt[0]}" y="${pt[1]+.55}" font-size="1.6" text-anchor="middle" fill="#ffb85c" font-weight="700">${up?'↑':'↓'}</text></g>`+tag(pt[0],pt[1]+3.2,s,'#ffb85c',1.1);
+}
+
+function drawGroup(g,w,opts){
+  const L=w.L,T=w.T,ghost=opts.ghost;
+  let s=ghost?`<g opacity=".2" pointer-events="none">`:`<g data-key="${g.key}">`;
+  if(L.src){
+    const it=ITEMS[g.id],c=col(g.id),a=T(1,1),b2=T(L.U-1,L.V-1.6);
+    const x=Math.min(a[0],b2[0]),y=Math.min(a[1],b2[1]),ww=Math.abs(b2[0]-a[0]),hh=Math.abs(b2[1]-a[1]);
+    s+=`<rect x="${x}" y="${y}" width="${ww}" height="${hh}" rx=".5" fill="${c}" fill-opacity=".14" stroke="${c}" stroke-width=".25"/>`;
+    const fs=Math.min(1.7,(ww-1)/(it.n.length*.6));
+    s+=`<text x="${x+ww/2}" y="${y+hh/2-.3}" font-size="${fs.toFixed(2)}" font-weight="600" text-anchor="middle" fill="${c}">${esc(it.n)}</text>`;
+    const sub=`${isFinite(g.ex.per)?g.count+'× ':''}${g.ex.n}`;
+    s+=`<text x="${x+ww/2}" y="${y+hh/2+1.8}" font-size="${Math.min(1.2,(ww-1)/(sub.length*.55)).toFixed(2)}" text-anchor="middle" fill="#aab2bc">${esc(sub)}</text>`;
+    s+=line(T(8,L.V-1.6),T(8,L.V),c,.6);
+  }else{
+    L.inLanes.forEach((l,k)=>{
+      const c=col(l.item),fl=ITEMS[l.item].fluid,last=L.rows[L.rows.length-1];
+      s+=line(T(l.pu,0),T(l.pu,last.inV[k]),c,.5,fl);
+      L.rows.forEach(row=>{
+        const c0=row.centers[0],cN=row.centers[row.centers.length-1],v=row.inV[k];
+        s+=line(T(Math.min(l.pu,c0+l.off),v),T(Math.max(l.pu,cN+l.off),v),c,.55,fl);
+        row.centers.forEach(cc=>{s+=line(T(cc+l.off,v),T(cc+l.off,row.mV),c,.32,fl);});
+      });
+    });
+    L.outLanes.forEach((l,j)=>{
+      const c=col(l.item),fl=ITEMS[l.item].fluid;
+      L.rows.forEach(row=>{
+        const c0=row.centers[0],cN=row.centers[row.centers.length-1],v=row.outV[j];
+        row.centers.forEach(cc=>{s+=line(T(cc+l.off,row.mV+L.b.l),T(cc+l.off,v),c,.32,fl);});
+        s+=line(T(Math.min(c0+l.off,l.pu),v),T(Math.max(cN+l.off,l.pu),v),c,.55,fl);
+      });
+      s+=line(T(l.pu,L.rows[0].outV[j]),T(l.pu,L.V),c,.55,fl);
+    });
+    const bd=L.b;
+    L.machines.forEach(m=>{
+      const a=T(m.u,m.v),bw=w.rot?m.l:m.w,bh=w.rot?m.w:m.l;
+      s+=`<rect x="${a[0]}" y="${a[1]}" width="${bw}" height="${bh}" rx=".4" fill="${bd.c}" fill-opacity=".22" stroke="${bd.c}" stroke-width=".25"/>`;
+      const fs=Math.min(1.3,(bw-.8)/(bd.n.length*.6));
+      s+=`<text x="${a[0]+bw/2}" y="${a[1]+bh/2-.2}" font-size="${fs.toFixed(2)}" text-anchor="middle" fill="#d8d4cc">${bd.n}</text>`;
+      s+=`<text x="${a[0]+bw/2}" y="${a[1]+bh/2+1.5}" font-size="${Math.min(1.4,bw/5).toFixed(2)}" text-anchor="middle" fill="${m.clock<.999?'#ffb85c':'#9aa3ad'}" font-family="JetBrains Mono,monospace">${pct(m.clock)}</text>`;
+    });
+  }
+  const title=g.kind==='source'?`${ITEMS[g.id].n} · ${fmt(g.rate)}${unit(g.id)}`:`${ITEMS[g.id].n} · ${fmt(g.rate)}${unit(g.id)} · ${g.count}× ${B[g.b].n}`;
+  s+=`<text x="${w.x+.3}" y="${w.y-.9}" font-size="1.9" font-weight="600" fill="${sel===g.key?'#ffb85c':'#e8e4db'}">${esc(title)}</text>`;
+  return s+'</g>';
+}
+
+function render(){
+  WG={};for(const g of model.groups)WG[g.key]=worldGeom(g);
+  const F=+state.floors||1,cur=Math.min(state.cur||0,F-1);
+  const onCur=g=>WG[g.key].f===cur;
+  const bad=new Set(),arr=model.groups.map(g=>[g.key,WG[g.key]]);
+  for(let i=0;i<arr.length;i++)for(let j=i+1;j<arr.length;j++){
+    const A=arr[i][1],Bb=arr[j][1];if(A.f!==Bb.f)continue;
+    if(A.x<Bb.x+Bb.W-1e-6&&Bb.x<A.x+A.W-1e-6&&A.y<Bb.y+Bb.H-1e-6&&Bb.y<A.y+A.H-1e-6){bad.add(arr[i][0]);bad.add(arr[j][0]);}
+  }
+  let h=`<rect x="-6000" y="-6000" width="12000" height="12000" fill="url(#g32)"/>`;
+  // ghost of floor below
+  if(F>1&&cur>0)for(const g of model.groups)if(WG[g.key].f===cur-1)h+=drawGroup(g,WG[g.key],{ghost:true});
+  // boxes
+  for(const g of model.groups){if(!onCur(g))continue;const w=WG[g.key];
+    h+=`<g data-key="${g.key}" class="${sel===g.key?'gsel':''} ${bad.has(g.key)?'gbad':''}"><rect class="grp" x="${w.x}" y="${w.y}" width="${w.W}" height="${w.H}" rx=".6"/></g>`;}
+  // belts
+  let labels='',lifts='';
+  const consumed=new Set();
+  for(const g of model.groups){
+    const w=WG[g.key];
+    g.inputs.forEach((inp,k)=>{
+      for(const sp of suppliers(inp.item)){
+        const pw=WG[sp.g.key];consumed.add(sp.g.key+'|'+inp.item);
+        if(pw.f!==cur&&w.f!==cur)continue;
+        const fl=!!ITEMS[inp.item].fluid,c=col(inp.item),rate=inp.rate*sp.share;
+        const from=pw.outs[pw.outIdx[inp.item]],off=((hue(inp.item)%5)-2)*1.3;
+        let pts;
+        if(pw.f===w.f)pts=route(from,pw.dir,w.ins[k],w.dir,off);
+        else{
+          const si=suppliers(inp.item).indexOf(sp),inp0=w.ins[k];
+          const Lp=[inp0[0]-w.dir[0]*7+w.dir[1]*si*4,inp0[1]-w.dir[1]*7+w.dir[0]*si*4];
+          if(w.f===cur){pts=[Lp,[inp0[0]-w.dir[0]*7,inp0[1]-w.dir[1]*7],inp0];lifts+=lift(Lp,pw.f,true,`${fmt(rate)}${unit(inp.item)}`);}
+          else{pts=route(from,pw.dir,Lp,w.dir,off);lifts+=lift(Lp,w.f,false);}
+        }
+        h+=`<path d="${P(pts)}" fill="none" stroke="#0d0f12" stroke-width="1.5" stroke-linejoin="round"/>`;
+        h+=`<path d="${P(pts)}" fill="none" stroke="${c}" stroke-width=".7" stroke-linejoin="round"${fl?' stroke-dasharray="1.6 .8"':''} marker-end="url(#arr)"/>`;
+        let best=0,bi=1;for(let i=1;i<pts.length;i++){const d=Math.abs(pts[i][0]-pts[i-1][0])+Math.abs(pts[i][1]-pts[i-1][1]);if(d>best){best=d;bi=i;}}
+        if(pw.f===w.f||pw.f===cur)labels+=tag((pts[bi][0]+pts[bi-1][0])/2,(pts[bi][1]+pts[bi-1][1])/2,`${ITEMS[inp.item].n} · ${fmt(rate)}${unit(inp.item)} · ${beltFor(rate,fl)}`,c);
+      }
+    });
+  }
+  // end products and surplus outputs
+  const targets=new Set(state.targets.map(x=>x.item));
+  for(const g of model.groups){
+    if(!onCur(g))continue;const w=WG[g.key];
+    g.outputs.forEach((o,j)=>{
+      if(consumed.has(g.key+'|'+o.item)&&!(targets.has(o.item)&&j===0))return;
+      const p=w.outs[j],end=[p[0]+w.dir[0]*3,p[1]+w.dir[1]*3],c=j===0?'#ffb85c':'#9aa3ad';
+      h+=`<path d="${P([p,end])}" stroke="${c}" stroke-width=".7" fill="none" marker-end="url(#arr)"/>`;
+      let amt=o.rate;
+      if(j===0&&consumed.has(g.key+'|'+o.item)){amt=state.targets.filter(x=>x.item===o.item).reduce((s,x)=>s+x.rate,0);}
+      else if(j>0){amt=(model.left[o.item]||0)*(o.rate/((model.byp[o.item])||o.rate));if(amt<1e-6)return;}
+      labels+=tag(end[0]+w.dir[0]*2,end[1]+w.dir[1]*2+(w.dir[1]?1.2:0),`${j===0?'★ '+t('endProduct'):t('surplus')}: ${fmt(amt)}${unit(o.item)}`,c,1.2);
+    });
+  }
+  for(const g of model.groups)if(onCur(g))h+=drawGroup(g,WG[g.key],{});
+  world.innerHTML=h+labels+lifts;
+  applyView();
+}
+function applyView(){world.setAttribute('transform',`matrix(${view.k} 0 0 ${view.k} ${view.tx} ${view.ty})`);}
+function bounds(onlyCur){
+  let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
+  for(const k in WG){const w=WG[k];if(onlyCur&&w.f!==(state.cur||0))continue;x0=Math.min(x0,w.x);y0=Math.min(y0,w.y);x1=Math.max(x1,w.x+w.W);y1=Math.max(y1,w.y+w.H);}
+  return x0>x1?null:{x0,y0,x1,y1};
+}
+function fit(){
+  const b=bounds(true)||bounds(false),r=svg.getBoundingClientRect();if(!b||!r.width)return;
+  const by0=b.y0-4;
+  const k=Math.max(.4,Math.min(30,Math.min((r.width-80)/(b.x1-b.x0),(r.height-80)/(b.y1-by0))));
+  view.k=k;view.tx=(r.width-(b.x1-b.x0)*k)/2-b.x0*k;view.ty=(r.height-(b.y1-by0)*k)/2-by0*k;applyView();
+}
+
+/* ================= SIDEBAR / TABLE / INFO ================= */
+function itemOptions(selId){
+  const groups=[[6,t('tierAll')],[7,'Tier 7'],[8,'Tier 8'],[9,'Tier 9']];
+  const all=sortedCraft();
+  return groups.map(([tier,label])=>`<optgroup label="${label}">`+all.filter(id=>ITEMS[id].tier===tier).map(id=>`<option value="${id}"${id===selId?' selected':''}>${esc(ITEMS[id].n)}</option>`).join('')+'</optgroup>').join('');
+}
+function renderTargets(){
+  $('#targets').innerHTML=state.targets.map((tg,i)=>`<div class="trow" data-i="${i}">
+    <select data-f="item" aria-label="${t('product')}">${itemOptions(tg.item)}</select>
+    <input type="number" data-f="rate" min="0" step="any" value="${tg.rate}" aria-label="${t('perMin')}">
+    <button class="x" data-f="del" aria-label="✕">✕</button></div>`).join('')+
+    (state.targets.length?`<p class="note" style="margin:0 0 8px">${t('perMinNote')}</p>`:'');
+}
+function renderFloorTabs(){
+  const F=+state.floors||1,el=$('#floorTabs');el.hidden=F<2;
+  if(F<2)return;
+  let h=`<span>${t('floor')}</span>`;
+  for(let i=F-1;i>=0;i--)h+=`<button data-fl="${i}" class="${i===state.cur?'on':''}" title="${esc(flong(i))}">${fname(i)}</button>`;
+  el.innerHTML=h;
+}
+function renderSide(){
+  const gs=model.groups,m=gs.filter(g=>g.kind==='machine');
+  $('#warn').hidden=model.converged;$('#warn').textContent=t('noConv');
+  const power=gs.reduce((s,g)=>s+g.power,0);
+  $('#sPower').textContent=fmt(Math.round(power))+' MW';
+  $('#sMachines').textContent=m.reduce((s,g)=>s+g.count,0);
+  $('#sGroups').textContent=m.length;
+  const b=bounds(false),F=+state.floors||1;
+  $('#sArea').textContent=b?`${Math.ceil((b.x1-b.x0)/8)} × ${Math.ceil((b.y1-b.y0)/8)}${F>1?' · '+F+' '+t('floorsWord'):''}`:'–';
+  $('#rawList').innerHTML=gs.filter(g=>g.kind==='source').map(g=>`<li><span><span class="dot" style="background:${col(g.id)}"></span>${esc(ITEMS[g.id].n)}<br><span class="sub">${isFinite(g.ex.per)?`${g.count}× ${esc(g.ex.n)} (${fmt(g.ex.per)}${unit(g.id)} ${t('each')})`:esc(g.ex.n)} ${g.ex.note||''}</span></span><span class="num">${fmt(g.rate)}${unit(g.id)}</span></li>`).join('')||`<li class="sub">${t('nothing')}</li>`;
+  const by=Object.entries(model.left);$('#byWrap').hidden=!by.length;
+  $('#byList').innerHTML=by.map(([k,v])=>`<li><span><span class="dot" style="background:${col(k)}"></span>${esc(ITEMS[k].n)}</span><span class="num">${fmt(v)}${unit(k)}</span></li>`).join('');
+  const cnt={};for(const g of m)cnt[g.b]=(cnt[g.b]||0)+g.count;
+  $('#bList').innerHTML=Object.entries(cnt).map(([k,v])=>`<li><span><span class="dot" style="background:${B[k].c}"></span>${B[k].n} <span class="sub">${B[k].w}×${B[k].l} m</span></span><span class="num">${v}×</span></li>`).join('')||'<li class="sub">–</li>';
+}
+function clockText(g){return g.clocks.every(c=>Math.abs(c-g.clocks[0])<1e-6)?`${g.count}× ${pct(g.clocks[0])}`:`${g.count-1}× 100% + 1× ${pct(g.clocks[g.count-1])}`;}
+function renderTable(){
+  const F=+state.floors||1;
+  const gs=model.groups.slice().sort((a,b)=>(b.kind==='machine'?depth(b.id):-1)-(a.kind==='machine'?depth(a.id):-1));
+  if(!gs.length){$('#tableView').innerHTML=`<p class="note">${t('empty')}</p>`;return;}
+  const fc=g=>F>1?`<td class="n">${fname(state.pos[g.key]?state.pos[g.key].f||0:0)}</td>`:'';
+  let h=`<table><thead><tr><th>${t('thProduct')}</th><th class="n">${t('thRate')}</th><th>${t('thBuilding')}</th><th class="n">${t('thCount')}</th><th>${t('thClock')}</th><th>${t('thInput')}</th><th class="n">${t('thPower')}</th>${F>1?`<th class="n">${t('thFloor')}</th>`:''}</tr></thead><tbody>`;
+  for(const g of gs){
+    if(g.kind==='source'){h+=`<tr class="src"><td><span class="dot" style="background:${col(g.id)}"></span>${esc(ITEMS[g.id].n)}</td><td class="n">${fmt(g.rate)}${unit(g.id)}</td><td>${esc(g.ex.n)}</td><td class="n">${isFinite(g.ex.per)?g.count:'–'}</td><td>–</td><td>${t('rawWord')}</td><td class="n">${fmt(g.power)} MW</td>${fc(g)}</tr>`;continue;}
+    const multi=RECIPES[g.id].length>1;
+    const extra=g.outputs.slice(1).map(o=>`<br><span style="color:var(--muted)">+ ${fmt(o.rate)}${unit(o.item)} ${esc(ITEMS[o.item].n)}</span>`).join('');
+    h+=`<tr><td><span class="dot" style="background:${col(g.id)}"></span>${esc(ITEMS[g.id].n)}${multi?`<br><span style="color:${g.rec.alt?'var(--accent2)':'var(--muted)'};font-size:12px">${g.rec.alt?'ALT · ':''}${esc(g.rec.name)}</span>`:''}</td><td class="n">${fmt(g.rate)}${unit(g.id)}${extra}</td><td>${B[g.b].n}</td><td class="n">${g.count} <span style="color:var(--muted)">(${fmt(g.exact)})</span></td><td>${clockText(g)}</td><td>${g.inputs.map(i=>`${fmt(i.rate)}${unit(i.item)} ${esc(ITEMS[i.item].n)}`).join('<br>')||'–'}</td><td class="n">${B[g.b].v?t('avg')+' ':''}${fmt(Math.round(g.power*10)/10)} MW</td>${fc(g)}</tr>`;
+  }
+  $('#tableView').innerHTML=h+'</tbody></table>';
+}
+function floorRow(p){
+  const F=+state.floors||1;if(F<2)return'';const f=p.f||0;
+  return `<div class="frow">${t('floor')}: <button class="btn small" data-act="fdown" ${f<=0?'disabled':''}>▼ ${t('down')}</button><b>${fname(f)}</b><button class="btn small" data-act="fup" ${f>=F-1?'disabled':''}>▲ ${t('up')}</button></div>`;
+}
+function renderInfo(){
+  const el=$('#info'),g=model.groups.find(x=>x.key===sel);
+  if(!g){el.hidden=true;return;}
+  el.hidden=false;
+  const p=state.pos[g.key],w=WG[g.key],size=`${w.W/8} × ${w.H/8} foundations`;
+  const acts=`<div class="acts"><button class="btn small" data-act="rot">${t('rotate')}</button>${p.manual?`<button class="btn small" data-act="auto">${t('backAuto')}</button>`:''}<button class="btn small" data-act="close">${t('close')}</button></div>`;
+  if(g.kind==='source'){
+    el.innerHTML=`<h3>${esc(ITEMS[g.id].n)}</h3><div class="meta">${t('rawBlock')} · ${size}</div>
+    <div class="chips"><span class="chip">${fmt(g.rate)}${unit(g.id)}</span>${isFinite(g.ex.per)?`<span class="chip">${g.count}× ${esc(g.ex.n)}</span>`:''}<span class="chip">${fmt(g.power)} MW</span></div>
+    <p class="note">${t('rawNote')}</p>${floorRow(p)}${acts}`;
+    return;
+  }
+  const b=B[g.b],list=RECIPES[g.id];
+  const users=[];for(const u of model.groups)for(const i of u.inputs){if(i.item!==g.id)continue;const sp=suppliers(g.id).find(s=>s.g===g);if(sp)users.push({u,r:i.rate*sp.share});}
+  const recSel=list.length>1?`<h2 style="margin-top:10px">${t('recipe')}</h2><select data-act="recipe">${list.map(r=>`<option value="${esc(r.name)}"${r===g.rec?' selected':''}>${r.alt?'ALT · ':''}${esc(r.name)}</option>`).join('')}</select><p class="note" style="margin:2px 0 0">${esc(recSummary(g.rec))}</p>`:'';
+  el.innerHTML=`<h3>${esc(ITEMS[g.id].n)}</h3><div class="meta">${g.count}× ${b.n} (${b.w}×${b.l} m) · ${size}</div>
+  <div class="chips"><span class="chip">${fmt(g.rate)}${unit(g.id)}</span><span class="chip">${b.v?t('avg')+' ':''}${fmt(Math.round(g.power*10)/10)} MW</span><span class="chip">${beltFor(g.rate,ITEMS[g.id].fluid)}</span></div>
+  ${recSel}
+  <h2 style="margin-top:10px">${t('inputs')}</h2><ul class="list">${g.inputs.map(i=>`<li><span><span class="dot" style="background:${col(i.item)}"></span>${esc(ITEMS[i.item].n)}</span><span class="num">${fmt(i.rate)}${unit(i.item)}</span></li>`).join('')||'<li>–</li>'}</ul>
+  <h2 style="margin-top:10px">${t('goesTo')}</h2><ul class="list">${users.map(x=>`<li><span>${esc(ITEMS[x.u.id].n)}</span><span class="num">${fmt(x.r)}${unit(g.id)}</span></li>`).join('')}${state.targets.some(x=>x.item===g.id)?`<li><span>★ ${t('endProduct')}</span><span class="num">${fmt(state.targets.filter(x=>x.item===g.id).reduce((s,x)=>s+x.rate,0))}${unit(g.id)}</span></li>`:''}${g.outputs.slice(1).map(o=>`<li><span>+ ${esc(ITEMS[o.item].n)}</span><span class="num">${fmt(o.rate)}${unit(o.item)}</span></li>`).join('')}</ul>
+  <h2 style="margin-top:10px">${t('machinesH')}</h2><div class="chips">${g.clocks.map((c,i)=>`<span class="chip">#${i+1} ${pct(c)}</span>`).join('')}</div>
+  ${floorRow(p)}${acts}`;
+}
+function applyLang(){
+  document.documentElement.lang=state.lang;
+  document.querySelectorAll('[data-i]').forEach(el=>{const k=el.dataset.i;if(k==='brandA')el.innerHTML=t(k);else el.textContent=t(k);});
+  document.querySelectorAll('[data-lang]').forEach(b=>b.classList.toggle('on',b.dataset.lang===state.lang));
+  document.title=state.lang==='en'?'Factory Planner — Satisfactory calculator with floor plan':'Fabrieksplanner — Satisfactory calculator met plattegrond';
+}
+function recompute(opts){
+  opts=opts||{};
+  dmemo={};model=compute();
+  if(sel&&!model.groups.some(g=>g.key===sel))sel=null;
+  layout(opts.force);
+  state.cur=Math.min(state.cur||0,(+state.floors||1)-1);
+  render();renderSide();renderTable();renderInfo();renderFloorTabs();
+  if(opts.fit)fit();
+  save();
+}
+function refreshAll(){applyLang();renderTargets();recompute();renderRecBtn();if(!$('#recModal').hidden)renderRecList();}
+function renderRecBtn(){const n=altCount();$('#btnRec').innerHTML=esc(t('recipesBtn'))+(n?` <span class="badge">${n} ALT</span>`:'');}
+function renderRecList(){
+  const q=$('#recSearch').value.trim().toLowerCase(),only=$('#recUsed').checked;
+  const inUse=new Set(model.groups.filter(g=>g.kind==='machine').map(g=>g.id));
+  const ids=Object.keys(RECIPES).filter(id=>RECIPES[id].length>1)
+    .filter(id=>!only||inUse.has(id)||R(id).alt)
+    .filter(id=>!q||ITEMS[id].n.toLowerCase().includes(q)||RECIPES[id].some(r=>r.name.toLowerCase().includes(q)))
+    .sort((a,b)=>ITEMS[a].n.localeCompare(ITEMS[b].n));
+  const box=$('#recList'),st=box.scrollTop;
+  box.innerHTML=ids.map(id=>{const cur=R(id);
+    return `<div class="rgrp"><h4><span class="dot" style="background:${col(id)}"></span>${esc(ITEMS[id].n)}${cur.alt?'<span class="badge">ALT</span>':''}</h4>`+
+    RECIPES[id].map(r=>`<label class="ropt"><input type="radio" name="r-${id}" data-id="${id}" value="${esc(r.name)}"${r===cur?' checked':''}><span><b>${esc(r.name)}</b>${r.alt?'<span class="badge">ALT</span>':` <span style="color:var(--muted);font-size:12px">· ${t('standard')}</span>`}</span><small>${esc(recSummary(r))}</small></label>`).join('')+'</div>';
+  }).join('')||`<p class="note" style="padding:12px">${t('noMatch')}</p>`;
+  box.scrollTop=st;
+}
+
+/* ================= EVENTS ================= */
+document.querySelectorAll('[data-lang]').forEach(b=>b.onclick=()=>{state.lang=b.dataset.lang;refreshAll();});
+$('#targets').addEventListener('input',e=>{
+  const row=e.target.closest('.trow');if(!row)return;const tg=state.targets[+row.dataset.i],f=e.target.dataset.f;
+  if(f==='item')tg.item=e.target.value;else if(f==='rate')tg.rate=Math.max(0,parseFloat(String(e.target.value).replace(',','.'))||0);
+  recompute({fit:f==='item'});
+});
+$('#targets').addEventListener('click',e=>{
+  if(e.target.dataset.f!=='del')return;state.targets.splice(+e.target.closest('.trow').dataset.i,1);renderTargets();recompute({fit:true});
+});
+$('#addTarget').onclick=()=>{state.targets.push({item:'reinforced-iron-plate',rate:5});renderTargets();recompute({fit:true});};
+['miner','purity','clockMode','gap','perRow','floors'].forEach(id=>{
+  const el=$('#'+id);el.value=String(state[id]);
+  el.onchange=()=>{state[id]=id==='clockMode'?el.value:+el.value;recompute({fit:id==='floors'});};
+});
+$('#snap').checked=!!state.snap;$('#snap').onchange=e=>{state.snap=e.target.checked;save();};
+$('#btnAuto').onclick=()=>recompute({force:true,fit:true});
+$('#btnFit').onclick=fit;
+$('#floorTabs').addEventListener('click',e=>{const b=e.target.closest('[data-fl]');if(!b)return;state.cur=+b.dataset.fl;sel=null;render();renderInfo();renderFloorTabs();save();});
+$('#tabMap').onclick=()=>switchTab('map');$('#tabTable').onclick=()=>switchTab('table');
+function switchTab(x){
+  $('#tabMap').classList.toggle('on',x==='map');$('#tabTable').classList.toggle('on',x==='table');
+  $('#mapView').hidden=x!=='map';$('#tableView').hidden=x!=='table';$('#floorTabs').style.visibility=x==='map'?'':'hidden';
+  if(x==='map')requestAnimationFrame(fit);
+}
+function rotateSel(){
+  const p=sel&&state.pos[sel];if(!p)return;const w=WG[sel];
+  const cx=p.x+w.W/2,cy=p.y+w.H/2;p.rot=p.rot?0:1;p.manual=true;
+  const gsz=state.snap?8:1;p.x=Math.round((cx-w.H/2)/gsz)*gsz;p.y=Math.round((cy-w.W/2)/gsz)*gsz;
+  render();renderInfo();renderSide();save();
+}
+$('#info').addEventListener('click',e=>{
+  const a=e.target.closest('[data-act]');if(!a||a.tagName==='SELECT')return;const act=a.dataset.act;
+  if(act==='rot')rotateSel();
+  else if(act==='auto'){delete state.pos[sel];recompute();}
+  else if(act==='close'){sel=null;render();renderInfo();}
+  else if(act==='fup'||act==='fdown'){const p=state.pos[sel];p.f=(p.f||0)+(act==='fup'?1:-1);p.manual=true;state.cur=p.f;render();renderInfo();renderFloorTabs();renderTable();save();}
+});
+$('#info').addEventListener('change',e=>{
+  if(e.target.dataset.act!=='recipe')return;const g=model.byKey[sel];if(!g)return;
+  state.rc[g.id]=e.target.value;renderRecBtn();recompute();
+});
+document.addEventListener('keydown',e=>{
+  if(/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))return;
+  if(e.key==='r'||e.key==='R')rotateSel();
+  if(e.key==='Escape'){sel=null;render();renderInfo();}
+});
+
+let drag=null;
+function toWorld(e){const r=svg.getBoundingClientRect();return[(e.clientX-r.left-view.tx)/view.k,(e.clientY-r.top-view.ty)/view.k];}
+svg.addEventListener('pointerdown',e=>{
+  if(e.button!==0)return;
+  const tg=e.target.closest('[data-key]');
+  try{svg.setPointerCapture(e.pointerId);}catch(_){}
+  if(tg){
+    const key=tg.dataset.key,p=state.pos[key];
+    drag={mode:'move',key,w0:toWorld(e),p0:{x:p.x,y:p.y},sx:e.clientX,sy:e.clientY,moved:false};
+    if(sel!==key){sel=key;render();renderInfo();}
+  }else{drag={mode:'pan',sx:e.clientX,sy:e.clientY,t0:{tx:view.tx,ty:view.ty},moved:false};svg.classList.add('panning');}
+});
+svg.addEventListener('pointermove',e=>{
+  if(!drag)return;
+  if(!drag.moved&&Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)<4)return;
+  drag.moved=true;
+  if(drag.mode==='pan'){view.tx=drag.t0.tx+e.clientX-drag.sx;view.ty=drag.t0.ty+e.clientY-drag.sy;applyView();return;}
+  const w=toWorld(e),gsz=(state.snap&&!e.shiftKey)?8:1,p=state.pos[drag.key];
+  const nx=Math.round((drag.p0.x+w[0]-drag.w0[0])/gsz)*gsz,ny=Math.round((drag.p0.y+w[1]-drag.w0[1])/gsz)*gsz;
+  if(nx!==p.x||ny!==p.y){p.x=nx;p.y=ny;p.manual=true;render();}
+});
+function endDrag(){
+  if(!drag)return;
+  if(drag.mode==='pan'&&!drag.moved&&sel){sel=null;render();renderInfo();}
+  if(drag.mode==='move'&&drag.moved){save();renderInfo();renderSide();}
+  drag=null;svg.classList.remove('panning');
+}
+svg.addEventListener('pointerup',endDrag);svg.addEventListener('pointercancel',endDrag);
+function zoomAt(f,cx,cy){const k2=Math.max(.3,Math.min(40,view.k*f));view.tx=cx-(cx-view.tx)*(k2/view.k);view.ty=cy-(cy-view.ty)*(k2/view.k);view.k=k2;applyView();}
+svg.addEventListener('wheel',e=>{e.preventDefault();const r=svg.getBoundingClientRect();zoomAt(Math.exp(-e.deltaY*.0015),e.clientX-r.left,e.clientY-r.top);},{passive:false});
+$('#zIn').onclick=()=>{const r=svg.getBoundingClientRect();zoomAt(1.25,r.width/2,r.height/2);};
+$('#zOut').onclick=()=>{const r=svg.getBoundingClientRect();zoomAt(.8,r.width/2,r.height/2);};
+
+const recModal=$('#recModal');
+$('#btnRec').onclick=()=>{$('#recSearch').placeholder=t('recSearch');renderRecList();recModal.hidden=false;$('#recSearch').focus();};
+$('#recSearch').addEventListener('input',renderRecList);$('#recUsed').onchange=renderRecList;
+$('#recList').addEventListener('change',e=>{const id=e.target.dataset.id;if(!id)return;
+  const r=RECIPES[id].find(x=>x.name===e.target.value);if(r&&!r.alt&&RECIPES[id].indexOf(r)===0)delete state.rc[id];else state.rc[id]=e.target.value;
+  recompute();renderRecBtn();renderRecList();});
+$('#recStd').onclick=()=>{state.rc={};recompute();renderRecBtn();renderRecList();};
+$('#recDone').onclick=()=>{recModal.hidden=true;};
+recModal.addEventListener('click',e=>{if(e.target===recModal)recModal.hidden=true;});
+const modal=$('#modal'),io=$('#io'),msg=$('#ioMsg');
+const SETTINGS=['miner','purity','clockMode','gap','perRow','floors'];
+$('#btnExport').onclick=()=>{
+  const d={v:2,targets:state.targets,rc:state.rc,snap:state.snap,pos:state.pos};SETTINGS.forEach(k=>d[k]=state[k]);
+  io.value=JSON.stringify(d);msg.textContent='';modal.hidden=false;io.focus();io.select();
+};
+$('#ioClose').onclick=()=>{modal.hidden=true;};
+$('#ioCopy').onclick=async()=>{
+  try{await navigator.clipboard.writeText(io.value);msg.textContent=t('copied');}
+  catch(e){io.focus();io.select();msg.textContent=t('copyFail');}
+};
+$('#ioLoad').onclick=()=>{
+  try{
+    const d=JSON.parse(io.value);if(!d||!Array.isArray(d.targets))throw 0;
+    d.targets=d.targets.filter(x=>x&&RECIPES[x.item]).map(x=>({item:x.item,rate:Math.max(0,+x.rate||0)}));
+    const lang=state.lang;state=Object.assign(JSON.parse(JSON.stringify(DEFAULT)),d,{lang,cur:0});
+    SETTINGS.forEach(id=>$('#'+id).value=String(state[id]));$('#snap').checked=!!state.snap;
+    sel=null;applyLang();renderTargets();recompute({fit:true});modal.hidden=true;
+  }catch(e){msg.textContent=t('loadFail');}
+};
+modal.addEventListener('click',e=>{if(e.target===modal)modal.hidden=true;});
+
+applyLang();renderTargets();renderRecBtn();
+requestAnimationFrame(()=>recompute({fit:true}));
+</script>
+</body>
+</html>

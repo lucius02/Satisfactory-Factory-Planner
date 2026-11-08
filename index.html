@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Fabrieksplanner — Satisfactory calculator met plattegrond</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <script type="module" src="/src/main.ts"></script>
+  </head>
+  <body class="bg-bg text-ink">
+    <div class="grid h-screen grid-cols-1 md:grid-cols-[350px_1fr] max-md:h-auto">
+      <!-- ============ SIDEBAR ============ -->
+      <aside class="flex flex-col overflow-auto border-line bg-panel md:border-r max-md:border-b">
+        <div class="flex items-start justify-between gap-2.5 border-b border-line px-[18px] pt-[18px] pb-3.5">
+          <div>
+            <h1 class="font-head text-[26px] font-bold uppercase tracking-wide" data-i="brandA"></h1>
+            <p class="mt-0.5 text-[12.5px] text-muted" data-i="brandSub"></p>
+          </div>
+          <div class="mt-1 flex flex-none overflow-hidden rounded-md border border-line2" role="group" aria-label="Language">
+            <button class="lang-btn" data-lang="nl">NL</button><button class="lang-btn" data-lang="en">EN</button>
+          </div>
+        </div>
+
+        <section class="side-section">
+          <h2 class="h2" data-i="whatMake"></h2>
+          <div id="targets"></div>
+          <button class="btn btn-sm" id="addTarget" data-i="addProduct"></button>
+        </section>
+
+        <details class="side-section group" open>
+          <summary class="h2 summary" data-i="settings"></summary>
+          <div class="field"><label for="miner" data-i="miner"></label>
+            <select id="miner" data-setting="miner" data-num>
+              <option value="1">Miner Mk1</option><option value="2">Miner Mk2</option><option value="3">Miner Mk3</option>
+            </select></div>
+          <div class="field"><label for="purity" data-i="purity"></label>
+            <select id="purity" data-setting="purity" data-num>
+              <option value="0" data-i="impure"></option><option value="1" data-i="normal"></option><option value="2" data-i="pure"></option>
+            </select></div>
+          <div class="field"><label for="clockMode" data-i="clock"></label>
+            <select id="clockMode" data-setting="clockMode">
+              <option value="even" data-i="clockEven"></option><option value="fill" data-i="clockFill"></option><option value="full" data-i="clockFull"></option>
+            </select></div>
+          <label class="check"><input type="checkbox" id="reuse" data-setting="reuse" /> <span data-i="reuse"></span></label>
+        </details>
+
+        <details class="side-section group" open>
+          <summary class="h2 summary" data-i="logisticsSet"></summary>
+          <div class="field"><label for="belt" data-i="beltTier"></label>
+            <select id="belt" data-setting="belt" data-num>
+              <option value="1">Mk1 · 60/min</option><option value="2">Mk2 · 120/min</option><option value="3">Mk3 · 270/min</option>
+              <option value="4">Mk4 · 480/min</option><option value="5">Mk5 · 780/min</option><option value="6">Mk6 · 1200/min</option>
+            </select></div>
+          <div class="field"><label for="pipe" data-i="pipeTier"></label>
+            <select id="pipe" data-setting="pipe" data-num>
+              <option value="1">Mk1 · 300 m³/min</option><option value="2">Mk2 · 600 m³/min</option>
+            </select></div>
+          <div class="field"><label for="dist" data-i="dist"></label>
+            <select id="dist" data-setting="dist">
+              <option value="manifold" data-i="distManifold"></option><option value="balancer" data-i="distBalancer"></option>
+            </select></div>
+          <label class="check" id="balSmoothRow"><input type="checkbox" id="balSmooth" data-setting="balSmooth" /> <span data-i="balSmooth"></span></label>
+          <p class="note" data-i="distHelp"></p>
+        </details>
+
+        <details class="side-section group" open>
+          <summary class="h2 summary" data-i="surplusMode"></summary>
+          <div class="field"><label for="surplus" data-i="surplusMode"></label>
+            <select id="surplus" data-setting="surplus">
+              <option value="output" data-i="surplusOutput"></option><option value="sink" data-i="surplusSink"></option><option value="storage" data-i="surplusStorage"></option>
+            </select></div>
+          <p class="note" data-i="surplusHelp"></p>
+        </details>
+
+        <details class="side-section group">
+          <summary class="h2 summary" data-i="layoutSet"></summary>
+          <div class="field"><label for="gap" data-i="gap"></label>
+            <select id="gap" data-setting="gap" data-num>
+              <option value="0">0 m</option><option value="1">1 m</option><option value="2">2 m</option><option value="4">4 m</option>
+            </select></div>
+          <div class="field"><label for="perRow" data-i="perRow"></label>
+            <select id="perRow" data-setting="perRow" data-num>
+              <option value="4">4</option><option value="6">6</option><option value="8">8</option><option value="10">10</option>
+              <option value="15">15</option><option value="0" data-i="unlimited"></option>
+            </select></div>
+          <div class="field"><label for="floors" data-i="floorsSet"></label>
+            <select id="floors" data-setting="floors" data-num>
+              <option value="1" data-i="oneFloor"></option><option value="2">2</option><option value="3">3</option>
+              <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+            </select></div>
+          <label class="check"><input type="checkbox" id="snap" data-setting="snap" /> <span data-i="snap"></span></label>
+        </details>
+
+        <section class="side-section">
+          <h2 class="h2" data-i="overview"></h2>
+          <p class="mb-2 text-[12.5px] text-bad" id="warn" hidden></p>
+          <div class="mb-3 grid grid-cols-2 gap-2">
+            <div class="stat"><small data-i="power"></small><b id="sPower">–</b></div>
+            <div class="stat"><small data-i="machines"></small><b id="sMachines">–</b></div>
+            <div class="stat"><small data-i="area"></small><b id="sArea">–</b></div>
+            <div class="stat"><small data-i="lines"></small><b id="sGroups">–</b></div>
+          </div>
+          <h2 class="h2" data-i="rawH"></h2>
+          <ul class="list" id="rawList"></ul>
+          <div id="byWrap" hidden><h2 class="h2 mt-3.5" data-i="surplusH"></h2><ul class="list" id="byList"></ul></div>
+          <h2 class="h2 mt-3.5" data-i="buildingsH"></h2>
+          <ul class="list" id="bList"></ul>
+          <h2 class="h2 mt-3.5" data-i="logisticsH"></h2>
+          <ul class="list" id="logList"></ul>
+          <p class="note" data-i="dataNote"></p>
+        </section>
+      </aside>
+
+      <!-- ============ MAIN ============ -->
+      <main class="flex min-h-0 min-w-0 flex-col max-md:h-[80vh]">
+        <div class="flex flex-wrap items-center gap-2 border-b border-line bg-panel px-3.5 py-2.5">
+          <div class="flex rounded-lg border border-line2 bg-panel2 p-[3px]" role="tablist">
+            <button id="tabMap" class="tab-btn on" role="tab" data-i="tabMap"></button>
+            <button id="tabTable" class="tab-btn" role="tab" data-i="tabTable"></button>
+          </div>
+          <div class="flex items-center gap-1 pl-1.5" id="floorTabs" hidden></div>
+          <button class="btn" id="btnAuto" data-i="auto"></button>
+          <button class="btn" id="btnFit" data-i="fit"></button>
+          <button class="btn" id="btnRec"></button>
+          <button class="btn" id="btnExport" data-i="share"></button>
+          <span class="flex-1"></span>
+          <span class="flex items-center gap-1.5 text-xs text-muted">
+            <i class="inline-block size-3.5 rounded-xs border border-[#4a5360] bg-[#181c21]"></i><span data-i="legend"></span>
+          </span>
+        </div>
+        <div class="relative min-h-0 flex-1" id="mapView">
+          <svg id="map" class="absolute inset-0 block size-full cursor-grab touch-none select-none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <pattern id="g8" width="8" height="8" patternUnits="userSpaceOnUse">
+                <rect width="8" height="8" fill="#181c21" />
+                <path d="M8 0H0V8" fill="none" stroke="#262c34" stroke-width=".12" />
+              </pattern>
+              <pattern id="g32" width="32" height="32" patternUnits="userSpaceOnUse">
+                <rect width="32" height="32" fill="url(#g8)" />
+                <path d="M32 0H0V32" fill="none" stroke="#323a44" stroke-width=".22" />
+              </pattern>
+              <marker id="arr" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                <path d="M0 1L9 5L0 9z" fill="context-stroke" />
+              </marker>
+            </defs>
+            <g id="world"></g>
+          </svg>
+          <div class="absolute bottom-3.5 left-3.5 flex flex-col gap-1">
+            <button class="btn size-[34px] p-0 text-lg" id="zIn" aria-label="Zoom in">+</button>
+            <button class="btn size-[34px] p-0 text-lg" id="zOut" aria-label="Zoom out">−</button>
+          </div>
+          <div class="absolute bottom-3.5 left-[60px] rounded-md border border-line bg-bg/85 px-2.5 py-1.5 text-xs text-muted max-md:hidden" data-i="hint"></div>
+          <div id="info" class="info-panel" hidden></div>
+        </div>
+        <div id="tableView" class="flex-1 overflow-auto p-[18px]" hidden></div>
+      </main>
+    </div>
+
+    <!-- ============ MODALS ============ -->
+    <div class="modal" id="recModal" hidden>
+      <div class="modal-box w-[min(820px,94vw)]">
+        <h2 class="h2" data-i="recTitle"></h2>
+        <p class="note mb-2.5 mt-0" data-i="recDesc"></p>
+        <div class="mb-2.5 flex flex-wrap items-center gap-3">
+          <input type="search" id="recSearch" class="input min-w-[200px] flex-1" />
+          <label class="check"><input type="checkbox" id="recUsed" checked /> <span data-i="onlyUsed"></span></label>
+        </div>
+        <div id="recList" class="max-h-[58vh] overflow-auto rounded-lg border border-line"></div>
+        <div class="mt-2.5 flex items-center justify-end gap-2">
+          <span class="mr-auto text-[12.5px] text-muted" id="recMsg"></span>
+          <button class="btn" id="recStd" data-i="allStd"></button>
+          <button class="btn btn-primary" id="recDone" data-i="done"></button>
+        </div>
+      </div>
+    </div>
+    <div class="modal" id="shareModal" hidden>
+      <div class="modal-box w-[min(620px,92vw)]">
+        <h2 class="h2" data-i="share"></h2>
+        <p class="note mb-2.5 mt-0" data-i="shareDesc"></p>
+        <textarea id="io" spellcheck="false" class="input h-60 w-full resize-y font-mono text-xs"></textarea>
+        <div class="mt-2.5 flex items-center justify-end gap-2">
+          <span class="mr-auto text-[12.5px] text-muted" id="ioMsg"></span>
+          <button class="btn" id="ioClose" data-i="close"></button>
+          <button class="btn" id="ioLoad" data-i="load"></button>
+          <button class="btn btn-primary" id="ioCopy" data-i="copy"></button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
