@@ -17,7 +17,9 @@ export type Part =
   | { t: 'split' | 'merge' | 'junc'; u: number; v: number; item: ItemId }
   | { t: 'loop'; pts: Pt[]; item: ItemId }
   /** `used` = connections already taken inside the group (machines + links to neighbour poles). */
-  | { t: 'pole'; u: number; v: number; used?: number };
+  | { t: 'pole'; u: number; v: number; used?: number }
+  /** Power line (pole → machine, pole → pole). */
+  | { t: 'wire'; a: Pt; b: Pt };
 
 export interface Machine {
   u: number;
@@ -79,7 +81,7 @@ export const snapUp = (x: number): number => Math.ceil(x / 8 - 1e-9) * 8;
 const SPLIT = LOGISTICS.splitter.l; // 4 m
 /** Max. connections of Power Pole Mk.1–3 (wiki). */
 export const POLE_CONNECTIONS = [4, 7, 10];
-const BAND_SOLID = SPLIT + 1; // one splitter / merger row
+const BAND_SOLID = SPLIT + 0.5; // one splitter / merger row
 const BAND_FLUID = 3; // pipeline junction row
 const LEVEL = 5; // vertical distance between balancer levels
 const LANE_SIDE = 1.6; // distance between trunk lanes on the side
@@ -150,10 +152,12 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
   const cellW = align ? Math.ceil(b.w / 8 - 1e-9) * 8 : b.w;
   const pitch = align ? cellW + extra * 8 : b.w + s.gap + extra;
   const mOffU = (cellW - b.w) / 2;
-  const kL = align ? Math.ceil(b.l / 8 - 1e-9) * 8 : b.l;
   const innerU = (pr - 1) * pitch + cellW;
-  const sideL = center ? 2 : 2 + nIn * LANE_SIDE;
-  const sideR = center ? 2 : 2 + nOut * LANE_SIDE;
+  // one row with one belt per flow: the belts enter right above the first machine and leave under the
+  // last one, so the block needs no extra side strips (only the machines' own foundations)
+  const direct = !center && nRows === 1 && !balanced && [...g.inputs, ...g.outputs].every((f) => rowBelts(f, pr) === 1);
+  const sideL = center || direct ? 0 : 2 + nIn * LANE_SIDE;
+  const sideR = center || direct ? 0 : 2 + nOut * LANE_SIDE;
   const rowGap = 3;
   const u0 = align ? Math.ceil(sideL / 8 - 1e-9) * 8 : sideL;
   const U = snapUp(u0 + innerU + sideR);
@@ -166,13 +170,13 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
 
   const inLanes: Lane[] = g.inputs.map((f, k) => ({
     item: f.item,
-    pu: center ? uMid + inOff(k) : u0 - 2 - k * LANE_SIDE,
+    pu: center ? uMid + inOff(k) : direct ? u0 + mOffU + b.w / 2 + inOff(k) : u0 - 2 - k * LANE_SIDE,
     fluid: isFluid(f.item),
     belts: lanesFor(f.rate, f.item, s),
   }));
   const outLanes: Lane[] = g.outputs.map((f, j) => ({
     item: f.item,
-    pu: center ? uMid + outOff(j) : uEnd + 2 + j * LANE_SIDE,
+    pu: center ? uMid + outOff(j) : direct ? u0 + (pr - 1) * pitch + mOffU + b.w / 2 + outOff(j) : uEnd + 2 + j * LANE_SIDE,
     fluid: isFluid(f.item),
     belts: lanesFor(f.rate, f.item, s),
   }));
@@ -199,11 +203,15 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
 
   const tapsIn: number[][] = g.inputs.map(() => []);
   const tapsOut: number[][] = g.outputs.map(() => []);
-  let top = 1;
+  const sumOut = outBand.reduce((a, x) => a + x, 0);
+  const rowH = sumIn + 0.5 + b.l + 0.5 + sumOut;
+  const content = nRows * rowH + (nRows - 1) * rowGap;
+  const V = snapUp(content);
+  let top = (V - content) / 2;
   for (let r = 0; r < nRows; r++) {
     const cnt = Math.min(pr, n - r * pr);
-    const mStart = align ? Math.ceil((top + sumIn + 1) / 8 - 1e-9) * 8 : top + sumIn + 1;
-    const mV = mStart + (kL - b.l) / 2;
+    const mStart = top + sumIn + 0.5;
+    const mV = mStart;
     const centers: number[] = [];
     for (let i = 0; i < cnt; i++) {
       const idx = r * pr + i;
@@ -217,12 +225,15 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
       for (let k = 0; k * per < cnt; k++) {
         const first = k * per;
         const last = Math.min(cnt, first + per) - 1;
-        parts.push({ t: 'pole', u: (centers[first] + centers[last]) / 2, v: mStart - 0.5, used: last - first + 1 });
+        const pu = (centers[first] + centers[last]) / 2;
+        const pv = mStart - 0.5;
+        parts.push({ t: 'pole', u: pu, v: pv, used: last - first + 1 });
+        for (let i = first; i <= last; i++) parts.push({ t: 'wire', a: [pu, pv], b: [centers[i], mV + Math.min(2, b.l / 4)] });
         counts.poles++;
       }
     }
     // ---- inputs (bands directly above the machines)
-    let bandTop = mStart - 1 - sumIn;
+    let bandTop = top;
     g.inputs.forEach((f, k) => {
       const lane = inLanes[k];
       const w = lane.fluid ? 0.6 : 0.55;
@@ -255,7 +266,7 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
       bandTop += inBand[k];
     });
     // ---- outputs (merger manifold)
-    let ob = mStart + kL + (align ? 0.5 : 1);
+    let ob = mStart + b.l + 0.5;
     g.outputs.forEach((f, j) => {
       const lane = outLanes[j];
       const w = lane.fluid ? 0.6 : 0.55;
@@ -284,7 +295,6 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
     });
     top = ob + rowGap;
   }
-  const V = snapUp(top - rowGap + 1);
 
   // ---- trunks (feed each row / each parallel belt)
   inLanes.forEach((lane, k) => {
@@ -314,6 +324,7 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
 function chainPoles(parts: Part[]): void {
   const poles = parts.filter((p): p is Extract<Part, { t: 'pole' }> => p.t === 'pole');
   poles.forEach((p, i) => (p.used = (p.used ?? 0) + (poles.length < 2 ? 0 : i === 0 || i === poles.length - 1 ? 1 : 2)));
+  for (let i = 1; i < poles.length; i++) parts.push({ t: 'wire', a: [poles[i - 1].u, poles[i - 1].v], b: [poles[i].u, poles[i].v] });
 }
 
 /** Draw a 1:N balancer tree whose leaves end at the machines at `xs`. */

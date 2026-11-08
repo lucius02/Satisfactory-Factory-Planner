@@ -52,6 +52,8 @@ Lettertypes komen uit `@fontsource/*` (gebundeld), zodat de desktop-apps offline
     Effectieve recepten = `{ ...ctx.auto, ...state.rc }` (`effectiveRc()` in de controller).
 - `layout/geometry.ts` — `geomLocal()` legt één groep neer: invoer links-boven, uitvoer rechts-onder, meerdere rijen
   (max. per rij door instelling én bandcapaciteit), manifold (splitters in serie) of balancerboom, mergers aan de uitvoerkant.
+  Eén rij met één band per stroom: invoer direct boven de eerste machine, uitvoer onder de laatste, geen zijstroken;
+  blokgrootte = machines + splitter/merger-rijen (1 Constructor = 1×3 foundations). Kabels pole→machine/pole→pole zijn `wire`-parts.
   Te veel voor één band: standaard parallelle banden in dezelfde rij (`capRows` = extra rijen; balancers altijd rijen).
   Per blok (`state.blockOpt[key]`): invoerkant links/midden/rechts (`side`), machines per rij, extra ruimte (`spacing`).
   `align` (standaard aan) zet elke machine midden op hele foundations. `GroupPos.mirror` spiegelt een blok (invoer rechts);

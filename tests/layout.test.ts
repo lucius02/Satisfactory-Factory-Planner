@@ -78,9 +78,19 @@ describe('foundation alignment', () => {
     const L = geomLocal(g, { gap: 2, perRow: 8, caps: model.caps, align: true });
     for (const m of L.machines) {
       expect((m.u + m.w / 2) % 8).toBeCloseTo(4);
-      expect((m.v + m.l / 2) % 8).toBeCloseTo(0); // 10 m long → 2 foundations, centered on the line between them
     }
     expect(L.U % 8).toBe(0);
+  });
+});
+
+describe('block size', () => {
+  it('one Constructor fits on 1 × 3 foundations', () => {
+    const one = compute({
+      targets: [{ item: 'iron-plate', rate: 20 }], external: [{ item: 'iron-ingot', rate: 30 }], rc: {}, miner: 2, purity: 1,
+      clockMode: 'even', belt: 3, pipe: 1, reuse: true, surplus: 'output', dist: 'manifold', distOv: {}, balSmooth: false,
+    }).byKey['m:iron-plate'];
+    const L = geomLocal(one, { gap: 2, perRow: 8, caps: { belt: 270, pipe: 300 }, align: true });
+    expect([L.U / 8, L.V / 8]).toEqual([1, 3]);
   });
 });
 

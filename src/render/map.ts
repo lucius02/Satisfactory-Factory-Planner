@@ -163,7 +163,10 @@ function drawGroup(g: Group, w: WorldGeom, ghost: boolean): string {
     const sub = `${Number.isFinite(g.ex!.per) ? g.count + '× ' : ''}${sourceName(g)}`;
     s += `<text x="${x + ww / 2}" y="${y + hh / 2 + 1.8}" font-size="${Math.min(1.2, (ww - 1) / (sub.length * 0.55)).toFixed(2)}" text-anchor="middle" fill="#aab2bc">${esc(sub)}</text>`;
     s += line([T(8, L.V - 1.6), T(8, L.V)], c, 0.6, false);
-    for (const p of L.parts) if (p.t === 'pole') s += drawPole(T(p.u, p.v));
+    for (const p of L.parts) {
+      if (p.t === 'pole') s += drawPole(T(p.u, p.v));
+      else if (p.t === 'wire' && state.showWires) s += `<path d="M${T(...p.a).join(' ')}L${T(...p.b).join(' ')}" stroke="#ffd34d" stroke-opacity=".75" stroke-width=".14" pointer-events="none"/>`;
+    }
   } else {
     for (const p of L.parts) {
       if (p.t === 'belt') s += line(p.pts.map(([u, v]) => T(u, v)), col(p.item), p.w, isFluid(p.item));
@@ -175,6 +178,16 @@ function drawGroup(g: Group, w: WorldGeom, ghost: boolean): string {
       else if (p.t === 'pole') {
         s += drawPole(T(p.u, p.v));
       }
+    }
+    if (state.showWires) {
+      let d = '';
+      for (const p of L.parts) {
+        if (p.t !== 'wire') continue;
+        const [x1, y1] = T(p.a[0], p.a[1]);
+        const [x2, y2] = T(p.b[0], p.b[1]);
+        d += `M${x1.toFixed(2)} ${y1.toFixed(2)}L${x2.toFixed(2)} ${y2.toFixed(2)}`;
+      }
+      if (d) s += `<path d="${d}" stroke="#ffd34d" stroke-opacity=".75" stroke-width=".14" fill="none" pointer-events="none"/>`;
     }
     const bd = L.bld!;
     for (const m of L.machines) {
