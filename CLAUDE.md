@@ -20,15 +20,14 @@ Lettertypes komen uit `@fontsource/*` (gebundeld), zodat de desktop-apps offline
 
 ## CI en releases
 - `.github/workflows/ci.yml` — bij push/PR: typecheck, tests, build, `cargo check` van `src-tauri`.
-- `.github/workflows/release.yml` — bij een tag `vX.Y.Z` (moet gelijk zijn aan `version` in `package.json`; Tauri leest
-  die versie ook): draft-release → Tauri-builds (Windows, macOS arm64/x64, Linux) met `latest.json` voor de updater →
-  Electron-builds (`Electron-*` assets) → release publiceren.
+- `.github/workflows/release.yml` — bij een tag `vX.Y.Z` (gelijk aan `version` in `package.json`): Tauri-builds voor Windows en
+  Linux via `tauri-action` als concept-release (met `latest.json` voor de updater). Concept daarna handmatig publiceren.
 - Release maken: versie in `package.json` ophogen, committen, `git tag v2.1.0 && git push --tags`.
 - Tauri auto-updater (`tauri-plugin-updater` + `tauri-plugin-process`): `src/app/updater.ts` checkt bij opstarten
   `releases/latest/download/latest.json` en toont een melding. Updates zijn gesigneerd: publieke sleutel staat in
   `src-tauri/tauri.conf.json`, de private sleutel staat lokaal in `~/.tauri/fabrieksplanner.key` (nooit committen) en
   als GitHub-secret `TAURI_SIGNING_PRIVATE_KEY` (+ `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, leeg). Sleutel kwijt = geen updates meer.
-- Electron heeft geen auto-updater.
+- Electron heeft geen auto-updater en wordt niet in CI gebouwd; lokaal via `npm run electron:build`.
 
 `legacy/index.html` is de oude versie in één bestand (alleen ter referentie).
 
