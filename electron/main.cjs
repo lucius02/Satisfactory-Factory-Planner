@@ -11,7 +11,7 @@ function createWindow() {
     minWidth: 900,
     minHeight: 600,
     backgroundColor: '#121417',
-    title: 'Fabrieksplanner — Satisfactory',
+    title: 'Satisfactory Factory Planner',
     icon: path.join(__dirname, '..', 'build', 'icon.png'),
     autoHideMenuBar: true,
     webPreferences: {

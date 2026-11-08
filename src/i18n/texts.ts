@@ -1,6 +1,6 @@
 /** All UI texts. Item and building names stay English (as in the game). */
 const nl = {
-  brandA: 'Fabrieks<span class="text-accent">planner</span>',
+  brandA: 'Satisfactory <span class="text-accent">Factory Planner</span>',
   brandSub: 'Satisfactory-calculator met plattegrond op schaal',
   whatMake: 'Wat wil je maken?',
   perMinNote: 'Aantallen per minuut.',
@@ -141,12 +141,10 @@ const nl = {
   allOn: 'Alle alternates aan',
   allOff: 'Alles uit',
   backToAuto: 'Terug naar automatisch',
-  updAvailable: 'Versie {0} is beschikbaar',
-  updAsk: 'Nu downloaden en installeren? De app start daarna opnieuw; je fabriek blijft bewaard.',
+  updReady: 'Versie {0} staat klaar',
+  updOnClose: 'De update is gedownload en wordt geïnstalleerd zodra je het programma sluit. Je fabriek blijft bewaard.',
+  updRestart: 'Nu herstarten',
   updLater: 'Later',
-  updInstall: 'Installeren',
-  updDownloading: 'Downloaden… {0}',
-  updInstalling: 'Installeren…',
   updFailed: 'Update mislukt: {0}',
   externalH: 'Externe aanvoer',
   externalHelp: 'Items die al van buiten deze fabriek binnenkomen (bijv. van een andere fabriek of trein). Die worden niet meer zelf gemaakt.',
@@ -194,7 +192,7 @@ const nl = {
 export type TextKey = keyof typeof nl;
 
 const en: Record<TextKey, string> = {
-  brandA: 'Factory <span class="text-accent">Planner</span>',
+  brandA: 'Satisfactory <span class="text-accent">Factory Planner</span>',
   brandSub: 'Satisfactory calculator with a to-scale floor plan',
   whatMake: 'What do you want to make?',
   perMinNote: 'Amounts per minute.',
@@ -335,12 +333,10 @@ const en: Record<TextKey, string> = {
   allOn: 'All alternates on',
   allOff: 'All off',
   backToAuto: 'Back to automatic',
-  updAvailable: 'Version {0} is available',
-  updAsk: 'Download and install now? The app restarts afterwards; your factory is kept.',
+  updReady: 'Version {0} is ready',
+  updOnClose: 'The update has been downloaded and will be installed when you close the program. Your factory is kept.',
+  updRestart: 'Restart now',
   updLater: 'Later',
-  updInstall: 'Install',
-  updDownloading: 'Downloading… {0}',
-  updInstalling: 'Installing…',
   updFailed: 'Update failed: {0}',
   externalH: 'External supply',
   externalHelp: 'Items that already come in from outside this factory (e.g. from another factory or a train). These are no longer made here.',

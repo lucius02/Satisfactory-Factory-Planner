@@ -1,7 +1,7 @@
 {
   "name": "satisfactory-fabrieksplanner",
   "private": true,
-  "version": "0.5.2",
+  "version": "0.6.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -20,6 +20,7 @@
     "@fontsource/inter": "^5.3.0",
     "@fontsource/jetbrains-mono": "^5.3.0",
     "@tailwindcss/vite": "^4.3.5",
+    "@tauri-apps/api": "^2.12.4",
     "@tauri-apps/cli": "^2.12.4",
     "concurrently": "^10.0.7",
     "cross-env": "^10.1.0",
@@ -36,7 +37,7 @@
   "main": "electron/main.cjs",
   "build": {
     "appId": "nl.fabrieksplanner.app",
-    "productName": "Fabrieksplanner",
+    "productName": "Satisfactory Factory Planner",
     "directories": {
       "output": "release",
       "buildResources": "build"

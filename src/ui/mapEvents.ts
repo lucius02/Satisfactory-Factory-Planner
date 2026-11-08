@@ -3,13 +3,16 @@ import { $, ctx } from '../app/context';
 import { recompute } from '../app/controller';
 import { applyView, fitView, renderMap, zoomAt } from '../render/map';
 import { saveState, state } from '../state/store';
+import { itemName } from '../data/items';
+import { beltFor, col, esc, fmt, unit } from '../util/format';
 import { mirrorSelected, renderInfo, rotateSelected } from './info';
+import { groupTitle } from './labels';
 import { renderOverview } from './sidebar';
 
 type Drag =
   | { mode: 'belt'; key: string; sx: number; sy: number; moved: boolean }
   | { mode: 'move'; key: string; w0: [number, number]; p0: { x: number; y: number }; sx: number; sy: number; moved: boolean }
-  | { mode: 'pan'; sx: number; sy: number; t0: { tx: number; ty: number }; moved: boolean };
+  | { mode: 'pan'; sx: number; sy: number; t0: { tx: number; ty: number }; moved: boolean; conn?: string };
 
 export function bindMap(): void {
   const svg = $<SVGSVGElement>('#map');
@@ -40,7 +43,8 @@ export function bindMap(): void {
         renderInfo();
       }
     } else {
-      drag = { mode: 'pan', sx: e.clientX, sy: e.clientY, t0: { tx: ctx.view.tx, ty: ctx.view.ty }, moved: false };
+      const conn = (e.target as Element).closest<SVGElement>('[data-conn]')?.dataset.conn;
+      drag = { mode: 'pan', sx: e.clientX, sy: e.clientY, t0: { tx: ctx.view.tx, ty: ctx.view.ty }, moved: false, conn };
       svg.classList.add('panning');
     }
   });
@@ -76,9 +80,11 @@ export function bindMap(): void {
     }
   });
 
-  const endDrag = () => {
+  const endDrag = (e: PointerEvent) => {
+    hideBeltTip();
     if (!drag) return;
-    if (drag.mode === 'pan' && !drag.moved && ctx.sel) {
+    if (drag.mode === 'pan' && !drag.moved && drag.conn) showBeltTip(drag.conn, e.clientX, e.clientY);
+    else if (drag.mode === 'pan' && !drag.moved && ctx.sel) {
       ctx.sel = null;
       renderMap();
       renderInfo();
@@ -146,4 +152,31 @@ function switchTab(x: 'map' | 'table'): void {
   $('#tableView').hidden = x !== 'table';
   $('#floorTabs').style.visibility = x === 'map' ? '' : 'hidden';
   if (x === 'map') requestAnimationFrame(fitView);
+}
+
+/** Small popup with what runs over a belt. */
+function showBeltTip(key: string, x: number, y: number): void {
+  const c = ctx.conns[key];
+  if (!c) return;
+  const [from, rest] = key.split('>');
+  const to = rest.split('|')[0];
+  const name = (k: string) => {
+    const g = ctx.model.byKey[k];
+    return g ? groupTitle(g) : k;
+  };
+  const stage = $('#mapView');
+  const r = stage.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.id = 'beltTip';
+  el.className = 'pointer-events-none absolute z-10 rounded-lg border border-line2 bg-panel/97 px-3 py-2 text-[13px] shadow-lg';
+  el.style.left = `${Math.min(x - r.left + 12, r.width - 260)}px`;
+  el.style.top = `${y - r.top + 12}px`;
+  el.innerHTML = `<b><span class="dot" style="background:${col(c.item)}"></span>${esc(itemName(c.item))}</b>
+    <div class="font-mono">${fmt(c.rate)}${unit(c.item)} · ${beltFor(c.rate, c.item)}</div>
+    <div class="text-xs text-muted">${esc(name(from))} → ${esc(name(to))}</div>`;
+  stage.append(el);
+}
+
+function hideBeltTip(): void {
+  document.getElementById('beltTip')?.remove();
 }

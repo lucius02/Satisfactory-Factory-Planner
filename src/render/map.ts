@@ -33,6 +33,20 @@ function lift(pt: Pt, f: number, incoming: boolean, extra?: string): string {
 
 let routeCache: { key: string; routes: Record<string, Pt[]> } | null = null;
 
+/**
+ * Blocks right next to each other: the input lies just ahead of the output (within a few metres),
+ * so connect them with a short straight / Z-shaped belt instead of routing around the blocks.
+ */
+function touching(a: Pt, da: Pt, b: Pt): Pt[] | null {
+  const ahead = (b[0] - a[0]) * da[0] + (b[1] - a[1]) * da[1];
+  const side = Math.abs((b[0] - a[0]) * da[1]) + Math.abs((b[1] - a[1]) * da[0]);
+  if (ahead < -0.01 || ahead > 6 || side > 80) return null;
+  if (side < 1e-6) return [a, b];
+  const m: Pt = [a[0] + (da[0] * ahead) / 2, a[1] + (da[1] * ahead) / 2];
+  const m2: Pt = da[1] !== 0 ? [b[0], m[1]] : [m[0], b[1]];
+  return [a, m, m2, b];
+}
+
 /** Route a belt from output `a` (direction da) to input `b` (direction db), optionally via a waypoint. */
 function routeBelt(router: Router | null, a: Pt, da: Pt, b: Pt, db: Pt, wp: [number, number] | undefined, off: number): Pt[] {
   const s = 3;
@@ -292,19 +306,25 @@ export function renderMap(opts: { fast?: boolean } = {}): void {
     const router = opts.fast ? null : new Router(boxes, jobs.flatMap((j) => [j.a, j.b]));
     // long connections first, they need the free channels most
     const sorted = [...jobs].sort((x, y) => Math.abs(y.a[0] - y.b[0]) + Math.abs(y.a[1] - y.b[1]) - (Math.abs(x.a[0] - x.b[0]) + Math.abs(x.a[1] - x.b[1])));
-    for (const j of sorted) routed[j.key] = routeBelt(router, j.a, j.da, j.b, j.db, wps[j.key], ((hue(j.item) % 5) - 2) * 1.3);
+    for (const j of sorted)
+      routed[j.key] = touching(j.a, j.da, j.b) ?? routeBelt(router, j.a, j.da, j.b, j.db, wps[j.key], ((hue(j.item) % 5) - 2) * 1.3);
     if (!opts.fast) routeCache = { key: cacheKey, routes: routed };
   }
-  for (const j of jobs) conns.push({ key: j.key, item: j.item, rate: j.rate, pts: routed[j.key], label: j.label });
+  // belts between blocks that touch get no text (click them to see what runs over them)
+  for (const j of jobs) conns.push({ key: j.key, item: j.item, rate: j.rate, pts: routed[j.key], label: j.label && !touching(j.a, j.da, j.b) });
 
   let labels = '';
   let handles = '';
+  ctx.conns = {};
   for (const c of conns) {
+    ctx.conns[c.key] = { item: c.item, rate: c.rate };
     const fl = isFluid(c.item);
     const col_ = col(c.item);
     const pts = c.pts;
     h += `<path d="${P(pts)}" fill="none" stroke="#0d0f12" stroke-width="1.5" stroke-linejoin="round"/>`;
     h += `<path d="${P(pts)}" fill="none" stroke="${col_}" stroke-width=".7" stroke-linejoin="round"${fl ? ' stroke-dasharray="1.6 .8"' : ''} marker-end="url(#arr)"/>`;
+    // wide invisible hit area: click a belt to see what runs over it
+    h += `<path class="belt-hit" data-conn="${esc(c.key)}" d="${P(pts)}" fill="none" stroke="transparent" stroke-width="2.4"/>`;
     let best = 0;
     let bi = 1;
     for (let i = 1; i < pts.length; i++) {
@@ -315,7 +335,9 @@ export function renderMap(opts: { fast?: boolean } = {}): void {
       }
     }
     const mid: Pt = [(pts[bi][0] + pts[bi - 1][0]) / 2, (pts[bi][1] + pts[bi - 1][1]) / 2];
-    if (c.label) {
+    const length = pts.reduce((sum, p, i) => (i ? sum + Math.abs(p[0] - pts[i - 1][0]) + Math.abs(p[1] - pts[i - 1][1]) : 0), 0);
+    // short belts (blocks right next to each other) get no text; click them instead
+    if (c.label && length >= 18) {
       const vertical = Math.abs(pts[bi][0] - pts[bi - 1][0]) < 1e-6;
       const txt = `${itemName(c.item)} · ${fmt(c.rate)}${unit(c.item)} · ${beltFor(c.rate, c.item)}`;
       labels += vertical ? tag(mid[0] - 1.6, mid[1], txt, col_, 1.25, true) : tag(mid[0], mid[1] - 1.6, txt, col_);

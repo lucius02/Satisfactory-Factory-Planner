@@ -1,4 +1,4 @@
-# Fabrieksplanner — Satisfactory calculator met plattegrond
+# Satisfactory Factory Planner — Satisfactory calculator met plattegrond
 
 Een productiecalculator voor Satisfactory 1.0 die de benodigde machines ook op een
 plattegrond op schaal zet (raster van foundations van 8×8 m, optioneel met verdiepingen),
@@ -21,10 +21,10 @@ Lettertypes komen uit `@fontsource/*` (gebundeld), zodat de desktop-apps offline
 ## CI en releases
 - `.github/workflows/ci.yml` — bij push/PR: typecheck, tests, build, `cargo check` van `src-tauri`.
 - `.github/workflows/release.yml` — bij een tag `vX.Y.Z` (gelijk aan `version` in `package.json`): Tauri-builds voor Windows en
-  Linux via `tauri-action` als concept-release (met `latest.json` voor de updater). Concept daarna handmatig publiceren.
+  Linux via `tauri-action`, direct gepubliceerd (met `latest.json` voor de updater).
 - Release maken: versie in `package.json` ophogen, committen, `git tag v2.1.0 && git push --tags`.
-- Tauri auto-updater (`tauri-plugin-updater` + `tauri-plugin-process`): `src/app/updater.ts` checkt bij opstarten
-  `releases/latest/download/latest.json` en toont een melding. Updates zijn gesigneerd: publieke sleutel staat in
+- Tauri auto-updater (`tauri-plugin-updater` + `tauri-plugin-process`): `src/app/updater.ts` checkt bij opstarten en elk uur
+  `releases/latest/download/latest.json`, downloadt stil en installeert bij afsluiten (of via "Nu herstarten"). Updates zijn gesigneerd: publieke sleutel staat in
   `src-tauri/tauri.conf.json`, de private sleutel staat lokaal in `~/.tauri/fabrieksplanner.key` (nooit committen) en
   als GitHub-secret `TAURI_SIGNING_PRIVATE_KEY` (+ `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, leeg). Sleutel kwijt = geen updates meer.
 - Electron heeft geen auto-updater en wordt niet in CI gebouwd; lokaal via `npm run electron:build`.
@@ -56,6 +56,7 @@ Lettertypes komen uit `@fontsource/*` (gebundeld), zodat de desktop-apps offline
   blokgrootte = machines + splitter/merger-rijen (1 Constructor = 1×3 foundations). Kabels pole→machine/pole→pole zijn `wire`-parts.
   Te veel voor één band: standaard parallelle banden in dezelfde rij (`capRows` = extra rijen; balancers altijd rijen).
   Per blok (`state.blockOpt[key]`): invoerkant links/midden/rechts (`side`), machines per rij, extra ruimte (`spacing`).
+  Midden: elke rij wordt vanuit het midden naar buiten gevoed; bij meerdere rijen loopt de trunk door een gang van 1 foundation.
   `align` (standaard aan) zet elke machine midden op hele foundations. `GroupPos.mirror` spiegelt een blok (invoer rechts);
   de auto-indeling spiegelt als de leveranciers rechts liggen.
   Levert tekenbare `parts` en `counts` (splitters/mergers/junctions). `worldGeom()` past positie/rotatie toe.
@@ -63,7 +64,8 @@ Lettertypes komen uit `@fontsource/*` (gebundeld), zodat de desktop-apps offline
   max. verdiepingsgrootte (`floorW`×`floorL` foundations), verdiepingen; handmatig geplaatste blokken zijn obstakels.
 - `render/router.ts` — A*-bandrouter op een raster van 2 m om blokken heen (weinig bochten, niet over andere banden).
   Sleeppunt per verbinding in `state.beltOff`, relatief t.o.v. het midden tussen beide band-uiteinden (beweegt mee met de blokken).
-  Tijdens slepen snelle route, bij loslaten A*. Labels langs verticale banden staan verticaal.
+  Tijdens slepen snelle route, bij loslaten A*. Blokken tegen elkaar (`touching()`): directe band langs de naad, zonder label;
+  klik op een band (`.belt-hit`) toont item, hoeveelheid en bandtype. Labels langs verticale banden staan verticaal.
 - Twee pagina's: `state.page` = `factory` of `power`. `state.pos`/`state.beltWp` horen altijd bij de open pagina, de andere
   staat in `state.otherLayout` (`switchPage()` wisselt ze). `planInput()` in de controller bouwt de solver-invoer per pagina;
   op de stroompagina worden generatoren (`gens`, groep `g:i`, kind `generator`, `gen` = MW) als vaste vraag naar brandstof/water

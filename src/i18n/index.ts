@@ -18,8 +18,5 @@ export function applyStaticTexts(root: ParentNode = document): void {
     if (k === 'brandA') el.innerHTML = t(k);
     else el.textContent = t(k);
   });
-  document.title =
-    state.lang === 'en'
-      ? 'Factory Planner — Satisfactory calculator with floor plan'
-      : 'Fabrieksplanner — Satisfactory calculator met plattegrond';
+  document.title = 'Satisfactory Factory Planner';
 }

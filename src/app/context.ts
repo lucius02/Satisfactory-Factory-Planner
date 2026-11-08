@@ -11,6 +11,8 @@ export const ctx = {
   auto: {} as Record<string, string>,
   /** Layout fits within the floors / floor size. */
   fits: true,
+  /** Belt connections on screen: what runs over them. */
+  conns: {} as Record<string, { item: string; rate: number }>,
   /** Midpoint between the two ends of each belt (reference for its drag offset). */
   beltMid: {} as Record<string, [number, number]>,
   /** Power network between the production lines (filled by the map renderer). */

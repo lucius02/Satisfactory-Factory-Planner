@@ -220,3 +220,6 @@
 .belt-handle.moved {
   opacity: 1;
 }
+.belt-hit {
+  cursor: pointer;
+}

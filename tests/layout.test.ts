@@ -129,6 +129,23 @@ describe('rows, parallel belts and block settings', () => {
     expect(L.rows).toBe(Math.ceil(smelt.count / 5));
     expect(L.machines[1].u - L.machines[0].u).toBe(16);
   });
+  it('feeds from the middle also with several rows (corridor in the middle)', () => {
+    const L = geomLocal(smelt, { ...base, perRow: 4, opt: { side: 'center' } });
+    expect(L.center).toBe(true);
+    expect(L.rows).toBeGreaterThan(1);
+    const pu = L.inLanes[0].pu;
+    // no machine sits on the trunk
+    expect(L.machines.every((m) => pu < m.u || pu > m.u + m.w)).toBe(true);
+    expect(Math.abs(pu - L.U / 2)).toBeLessThan(8);
+  });
+  it('2 constructors in one row are 2 foundations wide', () => {
+    const two = compute({
+      targets: [{ item: 'iron-plate', rate: 40 }], external: [{ item: 'iron-ingot', rate: 60 }], rc: {}, miner: 2, purity: 1,
+      clockMode: 'even', belt: 3, pipe: 1, reuse: true, surplus: 'output', dist: 'manifold', distOv: {}, balSmooth: false,
+    }).byKey['m:iron-plate'];
+    expect(geomLocal(two, base).U / 8).toBe(2);
+    expect(geomLocal(two, { ...base, opt: { spacing: 1 } }).U / 8).toBe(3);
+  });
   it('feeds from the middle when asked and possible', () => {
     const g = model.groups.find((x) => x.key === 'm:modular-frame')!;
     const L = geomLocal(g, { gap: 2, perRow: 8, caps: model.caps, align: true, opt: { side: 'center' } });

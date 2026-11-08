@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Fabrieksplanner",
+  "productName": "Satisfactory Factory Planner",
   "version": "../package.json",
   "identifier": "nl.fabrieksplanner.app",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Fabrieksplanner — Satisfactory",
+        "title": "Satisfactory Factory Planner",
         "width": 1440,
         "height": 900,
         "minWidth": 900,

@@ -1,6 +1,6 @@
 name: Release
 
-# Bouwt de Tauri-installers voor Windows en Linux en zet ze als concept-release op GitHub.
+# Bouwt de Tauri-installers voor Windows en Linux en publiceert ze direct als release op GitHub.
 # Start: push een tag `v*` (bijv. `git tag v0.3.0 && git push origin v0.3.0`) of handmatig.
 # De tag moet gelijk zijn aan `version` in package.json (Tauri leest die versie).
 #
@@ -11,8 +11,8 @@ name: Release
 #   TAURI_SIGNING_PRIVATE_KEY           inhoud van ~/.tauri/fabrieksplanner.key
 #   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  wachtwoord van die sleutel (leeg)
 #
-# Let op: de auto-updater kijkt naar de laatste *gepubliceerde* release. Publiceer de
-# concept-release op GitHub zodra hij klaar is, anders zien de apps de update niet.
+# De release wordt direct gepubliceerd: geïnstalleerde apps vinden de update via latest.json
+# van de laatste release en installeren hem automatisch.
 
 on:
   push:
@@ -55,6 +55,6 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
-          releaseName: "Fabrieksplanner ${{ github.ref_name }}"
-          releaseDraft: true
+          releaseName: "Satisfactory Factory Planner ${{ github.ref_name }}"
+          releaseDraft: false
           prerelease: false
