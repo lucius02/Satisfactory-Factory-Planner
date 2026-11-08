@@ -11,10 +11,12 @@ import { refreshAll } from './app/controller';
 import { checkForUpdates } from './app/updater';
 import { bindInfo } from './ui/info';
 import { bindMap } from './ui/mapEvents';
+import { bindPickers } from './ui/picker';
 import { bindRecipesModal } from './ui/recipesModal';
 import { bindShareModal } from './ui/shareModal';
 import { bindSidebar } from './ui/sidebar';
 
+bindPickers();
 bindSidebar();
 bindInfo();
 bindMap();

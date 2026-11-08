@@ -8,6 +8,8 @@ export const ctx = {
   sel: null as string | null,
   /** Automatically chosen recipe per item. */
   auto: {} as Record<string, string>,
+  /** Layout fits within the floors / floor size. */
+  fits: true,
   view: { k: 5, tx: 60, ty: 60 },
   /** Local geometry per group key, recomputed with the model. */
   local: {} as Record<string, LocalGeom>,

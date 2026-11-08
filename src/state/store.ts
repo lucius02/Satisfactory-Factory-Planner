@@ -1,3 +1,4 @@
+import { ITEMS } from '../data/items';
 import { RECIPES } from '../data/recipes';
 import { SETTING_KEYS, type State } from './types';
 
@@ -26,6 +27,11 @@ export const DEFAULT_STATE: State = {
   goal: 'raw',
   distOv: {},
   pos: {},
+  external: [],
+  layoutMode: 'flow',
+  floorW: 0,
+  floorL: 0,
+  beltWp: {},
 };
 
 const clone = <T>(x: T): T => JSON.parse(JSON.stringify(x)) as T;
@@ -49,6 +55,10 @@ export function normalize(raw: unknown, base: State = DEFAULT_STATE): State {
   // manually chosen alternates count as unlocked
   s.unlocked ??= {};
   for (const k in s.rc) if (RECIPES[k]?.find((r) => r.name === s.rc[k])?.alt) s.unlocked[s.rc[k]] = true;
+  s.external = (Array.isArray(s.external) ? s.external : [])
+    .filter((x) => x && ITEMS[x.item])
+    .map((x) => ({ item: x.item, rate: Math.max(0, Number(x.rate) || 0) }));
+  s.beltWp ??= {};
   s.distOv ??= {};
   s.pos ??= {};
   return s;
@@ -95,7 +105,7 @@ export function replaceState(next: State): void {
 
 /** Data for the share code. */
 export function exportCode(): string {
-  const d: Record<string, unknown> = { v: 3, targets: state.targets, rc: state.rc, unlocked: state.unlocked, distOv: state.distOv, pos: state.pos };
+  const d: Record<string, unknown> = { v: 3, targets: state.targets, rc: state.rc, unlocked: state.unlocked, external: state.external, beltWp: state.beltWp, distOv: state.distOv, pos: state.pos };
   for (const k of SETTING_KEYS) d[k] = state[k];
   return JSON.stringify(d);
 }

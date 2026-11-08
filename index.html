@@ -23,8 +23,13 @@
         <section class="side-section">
           <h2 class="h2" data-i="whatMake"></h2>
           <div id="targets"></div>
-          <button class="btn btn-sm" id="addTarget" data-i="addProduct"></button>
         </section>
+
+        <details class="side-section group">
+          <summary class="h2 summary" data-i="externalH"></summary>
+          <p class="note mt-0 mb-2" data-i="externalHelp"></p>
+          <div id="external"></div>
+        </details>
 
         <details class="side-section group" open>
           <summary class="h2 summary" data-i="settings"></summary>
@@ -75,8 +80,15 @@
           <p class="note" data-i="surplusHelp"></p>
         </details>
 
-        <details class="side-section group">
+        <details class="side-section group" open>
           <summary class="h2 summary" data-i="layoutSet"></summary>
+          <div class="field"><label for="layoutMode" data-i="layoutMode"></label>
+            <select id="layoutMode" data-setting="layoutMode">
+              <option value="flow" data-i="layoutFlow"></option><option value="compact" data-i="layoutCompact"></option>
+            </select></div>
+          <div class="field"><label for="floorW" data-i="floorSize"></label>
+            <div class="flex items-center gap-1"><input type="number" id="floorW" data-setting="floorW" data-num min="0" step="1" /><span class="text-muted">×</span><input type="number" id="floorL" data-setting="floorL" data-num min="0" step="1" /></div></div>
+          <p class="note mt-0 mb-2" data-i="floorSizeHelp"></p>
           <div class="field"><label for="gap" data-i="gap"></label>
             <select id="gap" data-setting="gap" data-num>
               <option value="0">0 m</option><option value="1">1 m</option><option value="2">2 m</option><option value="4">4 m</option>

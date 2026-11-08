@@ -7,6 +7,7 @@ import { renderInfo, rotateSelected } from './info';
 import { renderOverview } from './sidebar';
 
 type Drag =
+  | { mode: 'belt'; key: string; sx: number; sy: number; moved: boolean }
   | { mode: 'move'; key: string; w0: [number, number]; p0: { x: number; y: number }; sx: number; sy: number; moved: boolean }
   | { mode: 'pan'; sx: number; sy: number; t0: { tx: number; ty: number }; moved: boolean };
 
@@ -20,13 +21,16 @@ export function bindMap(): void {
 
   svg.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
-    const tg = (e.target as Element).closest<SVGElement>('[data-key]');
+    const belt = (e.target as Element).closest<SVGElement>('[data-belt]');
+    const tg = belt ? null : (e.target as Element).closest<SVGElement>('[data-key]');
     try {
       svg.setPointerCapture(e.pointerId);
     } catch {
       /* ignore */
     }
-    if (tg) {
+    if (belt) {
+      drag = { mode: 'belt', key: belt.dataset.belt!, sx: e.clientX, sy: e.clientY, moved: false };
+    } else if (tg) {
       const key = tg.dataset.key!;
       const p = state.pos[key];
       drag = { mode: 'move', key, w0: toWorld(e), p0: { x: p.x, y: p.y }, sx: e.clientX, sy: e.clientY, moved: false };
@@ -51,6 +55,13 @@ export function bindMap(): void {
       applyView();
       return;
     }
+    if (drag.mode === 'belt') {
+      const [x, y] = toWorld(e);
+      const gs = e.shiftKey ? 1 : 2;
+      state.beltWp[drag.key] = [Math.round(x / gs) * gs, Math.round(y / gs) * gs];
+      renderMap({ fast: true });
+      return;
+    }
     const w = toWorld(e);
     const gsz = state.snap && !e.shiftKey ? 8 : 1;
     const p = state.pos[drag.key];
@@ -60,7 +71,7 @@ export function bindMap(): void {
       p.x = nx;
       p.y = ny;
       p.manual = true;
-      renderMap();
+      renderMap({ fast: true });
     }
   });
 
@@ -71,7 +82,12 @@ export function bindMap(): void {
       renderMap();
       renderInfo();
     }
+    if (drag.mode === 'belt' && drag.moved) {
+      saveState(state);
+      renderMap();
+    }
     if (drag.mode === 'move' && drag.moved) {
+      renderMap();
       saveState(state);
       renderInfo();
       renderOverview();
@@ -80,6 +96,13 @@ export function bindMap(): void {
     svg.classList.remove('panning');
   };
   svg.addEventListener('pointerup', endDrag);
+  svg.addEventListener('dblclick', (e) => {
+    const belt = (e.target as Element).closest<SVGElement>('[data-belt]');
+    if (!belt) return;
+    delete state.beltWp[belt.dataset.belt!];
+    saveState(state);
+    renderMap();
+  });
   svg.addEventListener('pointercancel', endDrag);
 
   svg.addEventListener(

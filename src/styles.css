@@ -212,3 +212,11 @@
 [data-key] {
   cursor: move;
 }
+.belt-handle {
+  cursor: grab;
+  opacity: 0.55;
+}
+.belt-handle:hover,
+.belt-handle.moved {
+  opacity: 1;
+}

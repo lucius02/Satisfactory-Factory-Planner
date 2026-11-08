@@ -11,7 +11,7 @@ import { chosenRecipe, makeDepth } from './recipes';
 
 export type PlanInput = Pick<
   State,
-  'targets' | 'rc' | 'miner' | 'purity' | 'clockMode' | 'belt' | 'pipe' | 'reuse' | 'surplus' | 'dist' | 'distOv' | 'balSmooth'
+  'targets' | 'external' | 'rc' | 'miner' | 'purity' | 'clockMode' | 'belt' | 'pipe' | 'reuse' | 'surplus' | 'dist' | 'distOv' | 'balSmooth'
 >;
 
 const EPS = 1e-9;
@@ -36,6 +36,9 @@ export function compute(p: PlanInput): Model {
     if (!R(tg.item) || !(tg.rate > 0)) continue;
     T[tg.item] = (T[tg.item] ?? 0) + tg.rate;
   }
+
+  const EXT: Record<ItemId, number> = {};
+  for (const e of p.external ?? []) if (e.rate > 0) EXT[e.item] = (EXT[e.item] ?? 0) + e.rate;
 
   const maxClockOf = (r: Recipe): { mc: number; limit?: ItemId } => {
     let mc = 1;
@@ -70,7 +73,8 @@ export function compute(p: PlanInput): Model {
     }
     return { demand, byp };
   };
-  const reused = (d: number, b: number | undefined) => (p.reuse ? Math.min(d, b ?? 0) : 0);
+  /** Demand covered by external supply and (optionally) byproducts. */
+  const covered = (id: ItemId, d: number, b: number | undefined) => Math.min(d, (EXT[id] ?? 0) + (p.reuse ? b ?? 0 : 0));
 
   const iterate = (x: Record<ItemId, number>, round: boolean) => {
     for (let it = 0; it < 600; it++) {
@@ -78,7 +82,7 @@ export function compute(p: PlanInput): Model {
       const nx: Record<ItemId, number> = {};
       for (const id in demand) {
         const r = R(id);
-        const net = demand[id] - reused(demand[id], byp[id]);
+        const net = demand[id] - covered(id, demand[id], byp[id]);
         if (!r || net <= EPS) continue;
         let v = net / r.out[id];
         if (round) v = Math.max(x[id] ?? 0, machineCount(id, v) * maxClockOf(r).mc);
@@ -103,11 +107,21 @@ export function compute(p: PlanInput): Model {
     if (rate > EPS) (supply[item] ??= []).push({ key, rate });
   };
 
+  for (const id in EXT) {
+    const key = 'x:' + id;
+    groups.push({
+      key, id, kind: 'source', rate: EXT[id], exact: 1, count: 1, clocks: [], maxClock: 1, power: 0, inputs: [],
+      outputs: [{ item: id, rate: EXT[id] }], dist: 'manifold', external: true,
+      ex: { name: 'External supply', nameKey: 'external', per: Infinity, mw: 0 },
+    });
+    addSupply(id, key, EXT[id]);
+  }
+
   const ids = Object.keys(demand).sort((a, b) => depth(b) - depth(a));
   for (const id of ids) {
     const r = R(id);
     if (!r) {
-      const rate = demand[id] - reused(demand[id], byp[id]);
+      const rate = demand[id] - covered(id, demand[id], byp[id]);
       if (rate <= EPS) continue;
       const ex = extractorFor(id, { miner: p.miner, purity: p.purity, beltCap: caps.belt, pipeCap: caps.pipe });
       const count = Number.isFinite(ex.per) ? Math.max(1, Math.ceil(rate / ex.per - 1e-6)) : 1;

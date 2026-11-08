@@ -12,6 +12,9 @@ export type SurplusMode = 'output' | 'sink' | 'storage';
 /** What the automatic recipe choice minimises. */
 export type OptimizeGoal = 'raw' | 'power' | 'machines';
 
+/** flow = rows per production depth; compact = packed as tight as possible. */
+export type LayoutMode = 'flow' | 'compact';
+
 export interface Target {
   item: ItemId;
   rate: number;
@@ -28,6 +31,8 @@ export interface GroupPos {
 export interface State {
   lang: Lang;
   targets: Target[];
+  /** Items that already arrive from outside the factory (per minute). */
+  external: Target[];
   miner: 1 | 2 | 3;
   purity: 0 | 1 | 2;
   clockMode: ClockMode;
@@ -56,10 +61,16 @@ export interface State {
   /** Per production line override of `dist`. */
   distOv: Record<string, DistMode>;
   pos: Record<string, GroupPos>;
+  layoutMode: LayoutMode;
+  /** Max. floor size in foundations (0 = unlimited). */
+  floorW: number;
+  floorL: number;
+  /** Manually placed waypoint per belt connection (world metres). */
+  beltWp: Record<string, [number, number]>;
 }
 
 /** Settings that are part of the share code / settings panel. */
 export const SETTING_KEYS = [
-  'miner', 'purity', 'clockMode', 'gap', 'perRow', 'floors', 'belt', 'pipe', 'dist', 'balSmooth', 'surplus', 'reuse', 'snap', 'goal',
+  'miner', 'purity', 'clockMode', 'gap', 'perRow', 'floors', 'belt', 'pipe', 'dist', 'balSmooth', 'surplus', 'reuse', 'snap', 'goal', 'layoutMode', 'floorW', 'floorL',
 ] as const;
 export type SettingKey = (typeof SETTING_KEYS)[number];

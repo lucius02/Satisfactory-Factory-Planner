@@ -2,7 +2,6 @@ import { $, ctx } from '../app/context';
 import { recompute, refreshAll } from '../app/controller';
 import { BUILDINGS } from '../data/buildings';
 import { ITEMS, itemName } from '../data/items';
-import { craftableItems } from '../data/recipes';
 import { t } from '../i18n';
 import { bounds, renderMap } from '../render/map';
 import { saveState, state } from '../state/store';
@@ -10,36 +9,6 @@ import type { Lang, State } from '../state/types';
 import { col, esc, fmt, fmtInt, flong, fname, unit } from '../util/format';
 import { renderInfo } from './info';
 import { sourceName } from './labels';
-
-// ---------------- targets ----------------
-
-function itemOptions(selId: string): string {
-  const groups: [number, string][] = [[6, t('tierAll')], [7, 'Tier 7'], [8, 'Tier 8'], [9, 'Tier 9']];
-  const all = craftableItems();
-  return groups
-    .map(
-      ([tier, label]) =>
-        `<optgroup label="${label}">` +
-        all
-          .filter((id) => ITEMS[id].tier === tier)
-          .map((id) => `<option value="${id}"${id === selId ? ' selected' : ''}>${esc(ITEMS[id].n)}</option>`)
-          .join('') +
-        '</optgroup>',
-    )
-    .join('');
-}
-
-export function renderTargets(): void {
-  $('#targets').innerHTML =
-    state.targets
-      .map(
-        (tg, i) => `<div class="trow" data-row="${i}">
-      <select data-f="item" aria-label="${t('product')}">${itemOptions(tg.item)}</select>
-      <input type="number" data-f="rate" min="0" step="any" value="${tg.rate}" aria-label="${t('perMin')}">
-      <button class="x-btn" data-f="del" aria-label="✕">✕</button></div>`,
-      )
-      .join('') + (state.targets.length ? `<p class="note mb-2 mt-0">${t('perMinNote')}</p>` : '');
-}
 
 // ---------------- settings ----------------
 
@@ -65,30 +34,6 @@ export function bindSidebar(): void {
         refreshAll();
       }),
   );
-
-  const targets = $('#targets');
-  targets.addEventListener('input', (e) => {
-    const el = e.target as HTMLInputElement | HTMLSelectElement;
-    const row = el.closest<HTMLElement>('.trow');
-    if (!row) return;
-    const tg = state.targets[+row.dataset.row!];
-    const f = el.dataset.f;
-    if (f === 'item') tg.item = el.value;
-    else if (f === 'rate') tg.rate = Math.max(0, parseFloat(String(el.value).replace(',', '.')) || 0);
-    recompute({ fit: f === 'item' });
-  });
-  targets.addEventListener('click', (e) => {
-    const el = e.target as HTMLElement;
-    if (el.dataset.f !== 'del') return;
-    state.targets.splice(+el.closest<HTMLElement>('.trow')!.dataset.row!, 1);
-    renderTargets();
-    recompute({ fit: true });
-  });
-  $('#addTarget').onclick = () => {
-    state.targets.push({ item: 'reinforced-iron-plate', rate: 5 });
-    renderTargets();
-    recompute({ fit: true });
-  };
 
   settingEls().forEach((el) => {
     el.addEventListener('change', () => {
@@ -135,8 +80,9 @@ export function renderOverview(): void {
   const gs = model.groups;
   const machines = gs.filter((g) => g.kind === 'machine');
   const warn = $('#warn');
-  warn.hidden = model.converged;
-  warn.textContent = t('noConv');
+  const msgs = [model.converged ? '' : t('noConv'), ctx.fits ? '' : t('noFit', state.floors, `${state.floorW || '∞'} × ${state.floorL || '∞'}`)].filter(Boolean);
+  warn.hidden = !msgs.length;
+  warn.textContent = msgs.join(' ');
 
   const power = gs.reduce((s, g) => s + g.power, 0);
   $('#sPower').textContent = fmtInt(power) + ' MW';

@@ -8,7 +8,8 @@ import { fitView, renderMap } from '../render/map';
 import { saveState, state } from '../state/store';
 import { renderInfo } from '../ui/info';
 import { isRecModalOpen, renderRecBtn, renderRecList } from '../ui/recipesModal';
-import { renderFloorTabs, renderOverview, renderTargets, syncSettings } from '../ui/sidebar';
+import { renderTargets } from '../ui/picker';
+import { renderFloorTabs, renderOverview, syncSettings } from '../ui/sidebar';
 import { renderTable } from '../ui/table';
 import { ctx } from './context';
 
@@ -25,7 +26,13 @@ export function recompute(opts: RecomputeOpts = {}): void {
   const geo = { gap: state.gap, perRow: state.perRow, caps: ctx.model.caps };
   ctx.local = {};
   for (const g of ctx.model.groups) ctx.local[g.key] = geomLocal(g, geo);
-  autoLayout(ctx.model, state.pos, state.floors, (g) => ctx.local[g.key], opts.force);
+  ctx.fits = autoLayout(
+    ctx.model,
+    state.pos,
+    { floors: state.floors, mode: state.layoutMode, floorW: state.floorW, floorL: state.floorL },
+    (g) => ctx.local[g.key],
+    opts.force,
+  );
   state.cur = Math.min(state.cur || 0, (state.floors || 1) - 1);
   renderAll();
   if (opts.fit) fitView();
@@ -55,7 +62,7 @@ let autoCache: { key: string; auto: Record<string, string> } | null = null;
 /** Best recipe per product among the unlocked ones (cached on the inputs that matter). */
 function autoRecipes(): Record<string, string> {
   const key = JSON.stringify([
-    state.targets, state.rc, state.unlocked, state.goal, state.miner, state.purity, state.clockMode,
+    state.targets, state.external, state.rc, state.unlocked, state.goal, state.miner, state.purity, state.clockMode,
     state.belt, state.pipe, state.reuse, state.dist, state.distOv, state.balSmooth,
   ]);
   if (autoCache?.key !== key) autoCache = { key, auto: chooseRecipes({ ...state, surplus: 'output' }) };

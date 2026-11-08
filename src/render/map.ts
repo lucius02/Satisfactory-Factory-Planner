@@ -4,6 +4,7 @@ import { suppliers, type Group } from '../calc/model';
 import { isFluid, itemName } from '../data/items';
 import { t } from '../i18n';
 import { worldGeom, type Pt, type WorldGeom } from '../layout/geometry';
+import { ortho, Router, simplify } from './router';
 import { state } from '../state/store';
 import { beltFor, col, esc, fmt, fmtInt, fname, hue, pct, unit } from '../util/format';
 import { groupTitle, sourceName } from '../ui/labels';
@@ -27,6 +28,54 @@ function lift(pt: Pt, f: number, incoming: boolean, extra?: string): string {
     `<text x="${pt[0]}" y="${pt[1] + 0.55}" font-size="1.6" text-anchor="middle" fill="#ffb85c" font-weight="700">${up ? '↑' : '↓'}</text></g>` +
     tag(pt[0], pt[1] + 3.2, s, '#ffb85c', 1.1)
   );
+}
+
+let routeCache: { key: string; routes: Record<string, Pt[]> } | null = null;
+
+/** Route a belt from output `a` (direction da) to input `b` (direction db), optionally via a waypoint. */
+function routeBelt(router: Router | null, a: Pt, da: Pt, b: Pt, db: Pt, wp: [number, number] | undefined, off: number): Pt[] {
+  const s = 3;
+  const a1: Pt = [a[0] + da[0] * s, a[1] + da[1] * s];
+  const b1: Pt = [b[0] - db[0] * s, b[1] - db[1] * s];
+  if (!router) {
+    if (!wp) return route(a, da, b, db, off);
+    return simplify([a, ...ortho(a1, wp, da[1] !== 0), ...ortho(wp, b1, db[1] === 0), b]);
+  }
+  const legs: Pt[][] = [];
+  const stops: Pt[] = wp ? [a1, wp, b1] : [a1, b1];
+  for (let i = 0; i < stops.length - 1; i++) {
+    const p = router.route(stops[i], stops[i + 1]);
+    if (!p) return route(a, da, b, db, off);
+    legs.push(p);
+  }
+  const pts: Pt[] = [a, a1];
+  legs.forEach((leg, i) => {
+    const start = pts[pts.length - 1];
+    pts.push(...ortho(start, leg[0], i === 0 ? da[1] !== 0 : true).slice(1), ...leg.slice(1));
+    const stop = stops[i + 1];
+    pts.push(...ortho(pts[pts.length - 1], stop, i === legs.length - 1 ? db[1] === 0 : true).slice(1));
+  });
+  pts.push(b);
+  return simplify(pts);
+}
+
+/** Foundation lines (8 m) inside a block, so its width in foundations is easy to count. */
+function foundationGrid(w: WorldGeom): string {
+  let d = '';
+  for (let x = w.x + 8; x < w.x + w.W - 1e-6; x += 8) d += `M${x} ${w.y}V${w.y + w.H}`;
+  for (let y = w.y + 8; y < w.y + w.H - 1e-6; y += 8) d += `M${w.x} ${y}H${w.x + w.W}`;
+  return d ? `<path d="${d}" stroke="#3a4350" stroke-width=".18" fill="none" pointer-events="none"/>` : '';
+}
+
+/** Dashed outline of the maximum floor size. */
+function floorFrame(): string {
+  if (!(state.floorW > 0 || state.floorL > 0)) return '';
+  const b = bounds(true);
+  const x = 0;
+  const y = 0;
+  const w = state.floorW > 0 ? state.floorW * 8 : Math.max(8, (b?.x1 ?? 8) - x);
+  const h = state.floorL > 0 ? state.floorL * 8 : Math.max(8, (b?.y1 ?? 8) - y);
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="none" stroke="#f29b30" stroke-opacity=".55" stroke-width=".5" stroke-dasharray="3 1.5" pointer-events="none"/>`;
 }
 
 /** Orthogonal route between an output (direction da) and an input (direction db). */
@@ -108,7 +157,7 @@ function drawGroup(g: Group, w: WorldGeom, ghost: boolean): string {
   return s + '</g>';
 }
 
-export function renderMap(): void {
+export function renderMap(opts: { fast?: boolean } = {}): void {
   const { model } = ctx;
   const WG: Record<string, WorldGeom> = {};
   for (const g of model.groups) WG[g.key] = worldGeom(ctx.local[g.key], state.pos[g.key]);
@@ -136,57 +185,77 @@ export function renderMap(): void {
   for (const g of model.groups) {
     if (!onCur(g)) continue;
     const w = WG[g.key];
-    h += `<g data-key="${g.key}" class="${ctx.sel === g.key ? 'gsel' : ''} ${bad.has(g.key) ? 'gbad' : ''}"><rect class="grp" x="${w.x}" y="${w.y}" width="${w.W}" height="${w.H}" rx=".6"/></g>`;
+    h += `<g data-key="${g.key}" class="${ctx.sel === g.key ? 'gsel' : ''} ${bad.has(g.key) ? 'gbad' : ''}"><rect class="grp" x="${w.x}" y="${w.y}" width="${w.W}" height="${w.H}" rx=".6"/>${foundationGrid(w)}<text x="${w.x + w.W - 0.6}" y="${w.y + w.H - 0.7}" font-size="1.5" text-anchor="end" fill="#8e939b" font-family="JetBrains Mono,monospace">${w.W / 8}×${w.H / 8}</text></g>`;
   }
 
   // belts between groups
-  let labels = '';
+  interface Conn { key: string; item: string; rate: number; pts: Pt[]; label: boolean }
+  const conns: Conn[] = [];
   let lifts = '';
+  const jobs: { key: string; item: string; rate: number; a: Pt; da: Pt; b: Pt; db: Pt; pre: Pt[]; post: Pt[]; label: boolean }[] = [];
   for (const g of model.groups) {
     const w = WG[g.key];
     g.inputs.forEach((inp, k) => {
-      const sps = suppliers(model, inp.item);
-      sps.forEach((sp, si) => {
+      suppliers(model, inp.item).forEach((sp, si) => {
         const pw = WG[sp.g.key];
         if (pw.f !== cur && w.f !== cur) return;
-        const fl = isFluid(inp.item);
-        const c = col(inp.item);
         const rate = inp.rate * sp.share;
         const from = pw.outs[pw.outIdx[inp.item]];
-        const off = ((hue(inp.item) % 5) - 2) * 1.3;
-        let pts: Pt[];
-        if (pw.f === w.f) pts = route(from, pw.dir, w.ins[k], w.dir, off);
-        else {
-          const inp0 = w.ins[k];
-          const Lp: Pt = [inp0[0] - w.dir[0] * 7 + w.dir[1] * si * 4, inp0[1] - w.dir[1] * 7 + w.dir[0] * si * 4];
-          if (w.f === cur) {
-            pts = [Lp, [inp0[0] - w.dir[0] * 7, inp0[1] - w.dir[1] * 7], inp0];
-            lifts += lift(Lp, pw.f, true, `${fmt(rate)}${unit(inp.item)}`);
-          } else {
-            pts = route(from, pw.dir, Lp, w.dir, off);
-            lifts += lift(Lp, w.f, false);
-          }
+        const key = `${sp.g.key}>${g.key}|${inp.item}`;
+        if (pw.f === w.f) {
+          jobs.push({ key, item: inp.item, rate, a: from, da: pw.dir, b: w.ins[k], db: w.dir, pre: [], post: [], label: true });
+          return;
         }
-        h += `<path d="${P(pts)}" fill="none" stroke="#0d0f12" stroke-width="1.5" stroke-linejoin="round"/>`;
-        h += `<path d="${P(pts)}" fill="none" stroke="${c}" stroke-width=".7" stroke-linejoin="round"${fl ? ' stroke-dasharray="1.6 .8"' : ''} marker-end="url(#arr)"/>`;
-        let best = 0;
-        let bi = 1;
-        for (let i = 1; i < pts.length; i++) {
-          const d = Math.abs(pts[i][0] - pts[i - 1][0]) + Math.abs(pts[i][1] - pts[i - 1][1]);
-          if (d > best) {
-            best = d;
-            bi = i;
-          }
+        const inp0 = w.ins[k];
+        const Lp: Pt = [inp0[0] - w.dir[0] * 7 + w.dir[1] * si * 4, inp0[1] - w.dir[1] * 7 + w.dir[0] * si * 4];
+        if (w.f === cur) {
+          conns.push({ key, item: inp.item, rate, pts: [Lp, [inp0[0] - w.dir[0] * 7, inp0[1] - w.dir[1] * 7], inp0], label: false });
+          lifts += lift(Lp, pw.f, true, `${fmt(rate)}${unit(inp.item)}`);
+        } else {
+          jobs.push({ key, item: inp.item, rate, a: from, da: pw.dir, b: Lp, db: w.dir, pre: [], post: [], label: true });
+          lifts += lift(Lp, w.f, false);
         }
-        if (pw.f === w.f || pw.f === cur)
-          labels += tag(
-            (pts[bi][0] + pts[bi - 1][0]) / 2,
-            (pts[bi][1] + pts[bi - 1][1]) / 2,
-            `${itemName(inp.item)} · ${fmt(rate)}${unit(inp.item)} · ${beltFor(rate, inp.item)}`,
-            c,
-          );
       });
     });
+  }
+  const boxes = model.groups.filter((g) => onCur(g)).map((g) => ({ x: WG[g.key].x, y: WG[g.key].y, w: WG[g.key].W, h: WG[g.key].H }));
+  const cacheKey = JSON.stringify([boxes, jobs.map((j) => [j.key, j.a, j.b, state.beltWp[j.key]])]);
+  let routed: Record<string, Pt[]>;
+  if (!opts.fast && routeCache?.key === cacheKey) routed = routeCache.routes;
+  else {
+    routed = {};
+    const router = opts.fast ? null : new Router(boxes, jobs.flatMap((j) => [j.a, j.b]));
+    // long connections first, they need the free channels most
+    const sorted = [...jobs].sort((x, y) => Math.abs(y.a[0] - y.b[0]) + Math.abs(y.a[1] - y.b[1]) - (Math.abs(x.a[0] - x.b[0]) + Math.abs(x.a[1] - x.b[1])));
+    for (const j of sorted) routed[j.key] = routeBelt(router, j.a, j.da, j.b, j.db, state.beltWp[j.key], ((hue(j.item) % 5) - 2) * 1.3);
+    if (!opts.fast) routeCache = { key: cacheKey, routes: routed };
+  }
+  for (const j of jobs) conns.push({ key: j.key, item: j.item, rate: j.rate, pts: routed[j.key], label: j.label });
+
+  let labels = '';
+  let handles = '';
+  for (const c of conns) {
+    const fl = isFluid(c.item);
+    const col_ = col(c.item);
+    const pts = c.pts;
+    h += `<path d="${P(pts)}" fill="none" stroke="#0d0f12" stroke-width="1.5" stroke-linejoin="round"/>`;
+    h += `<path d="${P(pts)}" fill="none" stroke="${col_}" stroke-width=".7" stroke-linejoin="round"${fl ? ' stroke-dasharray="1.6 .8"' : ''} marker-end="url(#arr)"/>`;
+    let best = 0;
+    let bi = 1;
+    for (let i = 1; i < pts.length; i++) {
+      const d = Math.abs(pts[i][0] - pts[i - 1][0]) + Math.abs(pts[i][1] - pts[i - 1][1]);
+      if (d > best) {
+        best = d;
+        bi = i;
+      }
+    }
+    const mid: Pt = [(pts[bi][0] + pts[bi - 1][0]) / 2, (pts[bi][1] + pts[bi - 1][1]) / 2];
+    if (c.label) {
+      labels += tag(mid[0], mid[1] - 1.6, `${itemName(c.item)} · ${fmt(c.rate)}${unit(c.item)} · ${beltFor(c.rate, c.item)}`, col_);
+      const wp = state.beltWp[c.key];
+      const hp = wp ?? mid;
+      handles += `<circle class="belt-handle${wp ? ' moved' : ''}" data-belt="${esc(c.key)}" cx="${hp[0]}" cy="${hp[1]}" r="1.1" fill="#0d0f12" stroke="${col_}" stroke-width=".35"><title>${esc(t('beltHint'))}</title></circle>`;
+    }
   }
 
   // end products and loose surplus
@@ -211,7 +280,7 @@ export function renderMap(): void {
   }
 
   for (const g of model.groups) if (onCur(g)) h += drawGroup(g, WG[g.key], false);
-  $('#world').innerHTML = h + labels + lifts;
+  $('#world').innerHTML = floorFrame() + h + labels + lifts + handles;
   applyView();
 }
 

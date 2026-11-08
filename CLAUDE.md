@@ -40,7 +40,7 @@ Lettertypes komen uit `@fontsource/*` (gebundeld), zodat de desktop-apps offline
   - `logistics.ts` — bandcapaciteit (`BELTS` Mk1–6), pijpen (`PIPES` Mk1–2), maten van splitter/merger/sink/opslag.
   - `sinkPoints.ts` — AWESOME Sink-punten per item (ontbreekt = kan niet gesinkt worden).
 - `calc/` — pure rekenlogica (geen DOM, getest).
-  - `solver.ts` — `compute(input)`: fixed-point solver van doelen naar grondstoffen; bijproducten hergebruiken (optioneel),
+  - `solver.ts` — `compute(input)`: fixed-point solver van doelen naar grondstoffen; externe aanvoer (`external`, groep `x:item`) dekt eerst vraag af; bijproducten hergebruiken (optioneel),
     kringlopen, kloksnelheid begrensd door band/pijp-tier, klokmodus `even`/`fill`/`full`, restproductie → sink/opslag-groepen.
   - `model.ts` — `Group`, `Model`, `suppliers()` (wie levert wat, als aandeel van de totale productie).
   - `balancer.ts` — 1:N balancers uit 1:2/1:3 splitters, loopback voor andere priemfactoren, `balancerCount()`.
@@ -52,7 +52,11 @@ Lettertypes komen uit `@fontsource/*` (gebundeld), zodat de desktop-apps offline
 - `layout/geometry.ts` — `geomLocal()` legt één groep neer: invoer links-boven, uitvoer rechts-onder, meerdere rijen
   (max. per rij door instelling én bandcapaciteit), manifold (splitters in serie) of balancerboom, mergers aan de uitvoerkant.
   Levert tekenbare `parts` en `counts` (splitters/mergers/junctions). `worldGeom()` past positie/rotatie toe.
-- `layout/autoLayout.ts` — rijen per productiediepte (grondstoffen boven, sink/opslag onder), barycentrum-sortering, verdiepingen.
+- `layout/autoLayout.ts` — `flow` (rijen per productiediepte) of `compact` (shelf-packing), barycentrum-sortering,
+  max. verdiepingsgrootte (`floorW`×`floorL` foundations), verdiepingen; handmatig geplaatste blokken zijn obstakels.
+- `render/router.ts` — A*-bandrouter op een raster van 2 m om blokken heen (weinig bochten, niet over andere banden).
+  Waypoints per verbinding in `state.beltWp` (versleepbaar bolletje op de band). Tijdens slepen snelle route, bij loslaten A*.
+- `ui/picker.ts` — productkiezer en externe aanvoer (zoekbalk + checkboxlijst, alfabetisch).
 - `render/map.ts` — SVG in wereldcoördinaten (1 eenheid = 1 meter), pan/zoom via één `matrix()`.
 - `ui/` — zijbalk, tabel, infopaneel, receptenvenster, deelvenster, kaart-events.
 - `app/context.ts` (runtime-state: model, selectie, view, geometrie) en `app/controller.ts` (`recompute()`, `refreshAll()`).

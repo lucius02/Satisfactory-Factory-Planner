@@ -3,7 +3,7 @@ import { chooseRecipes, type OptimizeInput } from '../src/calc/optimize';
 import { RECIPES } from '../src/data/recipes';
 
 const base: OptimizeInput = {
-  targets: [], rc: {}, miner: 2, purity: 1, clockMode: 'even', belt: 6, pipe: 2, reuse: true,
+  targets: [], external: [], rc: {}, miner: 2, purity: 1, clockMode: 'even', belt: 6, pipe: 2, reuse: true,
   surplus: 'output', dist: 'manifold', distOv: {}, balSmooth: false, unlocked: {}, goal: 'raw',
 };
 const allAlts = Object.fromEntries(Object.values(RECIPES).flat().filter((r) => r.alt).map((r) => [r.name, true]));

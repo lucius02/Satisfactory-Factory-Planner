@@ -5,6 +5,7 @@ import { compute, type PlanInput } from '../src/calc/solver';
 
 const base: PlanInput = {
   targets: [],
+  external: [],
   rc: {},
   miner: 2,
   purity: 1,
@@ -79,6 +80,20 @@ describe('compute()', () => {
   it('without reuse the byproduct goes to surplus', () => {
     const m = plan({ targets: [{ item: 'alumina-solution', rate: 120 }], reuse: false });
     expect(m.left.silica).toBeCloseTo(50);
+  });
+});
+
+describe('external supply', () => {
+  it('covers demand before building machines or miners', () => {
+    const m = plan({ targets: [{ item: 'iron-plate', rate: 20 }], external: [{ item: 'iron-ingot', rate: 20 }] });
+    expect(m.byKey['x:iron-ingot'].rate).toBe(20);
+    expect(m.byKey['m:iron-ingot'].exact).toBeCloseTo(1 / 3);
+    expect(m.byKey['s:iron-ore'].rate).toBeCloseTo(10);
+  });
+  it('reports unused external supply as surplus', () => {
+    const m = plan({ targets: [{ item: 'iron-plate', rate: 20 }], external: [{ item: 'iron-ingot', rate: 50 }] });
+    expect(m.byKey['m:iron-ingot']).toBeUndefined();
+    expect(m.left['iron-ingot']).toBeCloseTo(20);
   });
 });
 

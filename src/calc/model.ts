@@ -34,6 +34,8 @@ export interface Group {
   outputs: Flow[];
   dist: DistMode;
   ex?: Extractor;
+  /** source: supplied from outside the factory. */
+  external?: boolean;
   /** sink: points per minute. */
   sinkPoints?: number;
   /** storage: minutes until full (fluids only). */
