@@ -30,7 +30,7 @@ function floorRow(f: number): string {
     <button class="btn btn-sm" data-act="fup" ${f >= F - 1 ? 'disabled' : ''}>▲ ${t('up')}</button></div>`;
 }
 
-function blockSettings(g: Group): string {
+function blockSettings(g: Group, outputOnly = false): string {
   const o = state.blockOpt[g.key] ?? {};
   const L = ctx.local[g.key];
   const name = (side?: string) => t(side === 'center' ? 'sideCenter' : side === 'right' ? 'sideRight' : 'sideLeft');
@@ -39,18 +39,24 @@ function blockSettings(g: Group): string {
       .map((v) => `<option value="${v}"${v === cur ? ' selected' : ''}>${name(v)}</option>`)
       .join('')}</select>`;
   const nCons = consumersOf(ctx.model, g).length;
-  const inRows = g.inputs
-    .map(
-      (i) =>
-        `<div class="field"><label>${t('inSideOf', itemName(i.item))}</label>${sel(`in:${i.item}`, o.inSides?.[i.item] ?? o.side, L?.inSides?.[i.item])}</div>`,
-    )
-    .join('');
-  return `${h2('blockH')}
-    ${inRows}
-    ${g.outputs.length ? `<div class="field"><label>${t('outSide')}</label>${sel('outSide', o.outSide, L?.outSide)}</div>` : ''}
-    ${nCons > 1 ? `<label class="check"><input type="checkbox" data-act="outSplit"${o.outSplit ? ' checked' : ''}> <span>${t('outSplit')}</span></label>${o.outSplit && !L?.split ? `<p class="note mt-0">${t('outSplitNote')}</p>` : ''}` : ''}
-    <div class="field"><label>${t('perRow')}</label><input type="number" min="0" step="1" data-act="perRow" value="${o.perRow ?? 0}" title="0 = ${esc(t('sideAuto'))}"></div>
+  const inRows = outputOnly
+    ? ''
+    : g.inputs
+        .map(
+          (i) =>
+            `<div class="field"><label>${t('inSideOf', itemName(i.item))}</label>${sel(`in:${i.item}`, o.inSides?.[i.item] ?? o.side, L?.inSides?.[i.item])}</div>`,
+        )
+        .join('');
+  const out = g.outputs.length
+    ? `<div class="field"><label>${t('outSide')}</label>${sel('outSide', o.outSide, L?.outSide)}</div>
+      <label class="check"><input type="checkbox" data-act="outSplit"${o.outSplit ? ' checked' : ''}> <span>${t('outSplit')}</span></label>
+      ${o.outSplit && !L?.split ? `<p class="note mt-0">${t(nCons < 2 ? 'outSplitFew' : 'outSplitNote')}</p>` : ''}`
+    : '';
+  const rows = outputOnly
+    ? ''
+    : `<div class="field"><label>${t('perRow')}</label><input type="number" min="0" step="1" data-act="perRow" value="${o.perRow ?? 0}" title="0 = ${esc(t('sideAuto'))}"></div>
     <div class="field"><label>${t(state.align ? 'spacingF' : 'spacingM')}</label><input type="number" min="0" step="1" data-act="spacing" value="${o.spacing ?? 0}"></div>`;
+  return `${h2('blockH')}${inRows}${out}${rows}`;
 }
 
 function logistics(g: Group): string {
@@ -86,7 +92,7 @@ export function renderInfo(): void {
   if (g.kind === 'source') {
     el.innerHTML = `${head(itemName(g.id), `${t('rawBlock')} · ${size}`)}
       <div class="chips"><span class="chip">${fmt(g.rate)}${unit(g.id)}</span>${Number.isFinite(g.ex!.per) ? `<span class="chip">${g.count}× ${esc(sourceName(g))}</span>` : ''}<span class="chip">${fmt(g.power)} MW</span><span class="chip">${beltFor(g.rate, g.id)}</span></div>
-      <p class="note">${t('rawNote')}</p>${floorRow(p.f)}${acts}`;
+      <p class="note">${t('rawNote')}</p>${blockSettings(g, true)}${floorRow(p.f)}${acts}`;
     return;
   }
 

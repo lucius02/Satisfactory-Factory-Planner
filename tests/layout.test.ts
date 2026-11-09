@@ -206,3 +206,55 @@ describe('daisy-chaining (1.2)', () => {
     expect(L.parts.filter((p) => p.t === 'wire').length).toBe(g.count + L.rows - 1);
   });
 });
+
+describe('output options for every block with an output', () => {
+  it('a raw resource block can choose its exit side and split per consumer', async () => {
+    const { consumersOf } = await import('../src/layout/sides');
+    const src = model.groups.find((x) => x.key === 's:iron-ore')!;
+    const cons = consumersOf(model, src);
+    expect(cons.length).toBeGreaterThan(0);
+    const base = { gap: 2, perRow: 8, caps: model.caps };
+    expect(geomLocal(src, { ...base, outSide: 'left' }).outLanes[0].pu).toBe(3);
+    expect(geomLocal(src, { ...base, outSide: 'right' }).outLanes[0].pu).toBe(13);
+    const L = geomLocal(src, { ...base, outSplit: [{ key: 'a', rate: 60 }, { key: 'b', rate: 30 }] });
+    expect(L.split).toBe(true);
+    expect(L.outLanes.map((l) => l.to)).toEqual(['a', 'b']);
+  });
+});
+
+describe('no unnecessary mergers on the output side', () => {
+  it('never uses more mergers than machines minus outgoing belts', async () => {
+    const { isFluid } = await import('../src/data/items');
+    for (const belt of [1, 3] as const)
+      for (const [item, rate] of [['iron-plate', 60], ['screw', 400], ['reinforced-iron-plate', 20], ['plastic', 90], ['modular-frame', 10]] as const) {
+        const m = compute({
+          targets: [{ item, rate }], external: [], rc: {}, miner: 2, purity: 1, clockMode: 'even', belt, pipe: 1, reuse: true,
+          surplus: 'output', dist: 'manifold', distOv: {}, balSmooth: false,
+        });
+        for (const g of m.groups.filter((x) => x.kind === 'machine'))
+          for (const outSide of ['left', 'center', 'right'] as const)
+            for (const perRow of [0, 3]) {
+              const L = geomLocal(g, { gap: 2, perRow, caps: m.caps, align: true, outSide });
+              const mergers = L.parts.filter((p) => p.t === 'merge').length;
+              const solidOuts = g.outputs.filter((o) => !isFluid(o.item)).length;
+              expect(mergers).toBeLessThanOrEqual(solidOuts * g.count - L.outLanes.filter((l) => !l.fluid).length);
+            }
+      }
+  });
+});
+
+describe('middle feed with an odd number of machines', () => {
+  it('3 machines from the middle: one 3-way splitter and one 3-way merger at the middle machine', () => {
+    const three = compute({
+      targets: [{ item: 'iron-rod', rate: 45 }], external: [{ item: 'iron-ingot', rate: 45 }], rc: {}, miner: 2, purity: 1,
+      clockMode: 'even', belt: 3, pipe: 1, reuse: true, surplus: 'output', dist: 'manifold', distOv: {}, balSmooth: false,
+    }).byKey['m:iron-rod'];
+    expect(three.count).toBe(3);
+    const L = geomLocal(three, { gap: 2, perRow: 0, caps: { belt: 270, pipe: 300 }, align: true, inSide: 'center', outSide: 'center' });
+    expect(L.parts.filter((p) => p.t === 'split').length).toBe(1);
+    expect(L.parts.filter((p) => p.t === 'merge').length).toBe(1);
+    const midX = L.machines[1].u + L.machines[1].w / 2;
+    expect(L.outLanes[0].pu).toBeCloseTo(midX);
+    expect(L.inLanes[0].pu).toBeCloseTo(midX);
+  });
+});

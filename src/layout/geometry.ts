@@ -114,10 +114,16 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
       counts.poles = n;
       counts.wires = g.count + n - 1;
     }
-    return {
-      U: 16, V: 8, src: true, machines: [], inLanes: [], parts, counts, rows: 0,
-      outLanes: [{ item: g.id, pu: 8, fluid: isFluid(g.id), belts: lanesFor(g.rate, g.id, s) }],
-    };
+    // exit on the left / middle / right, or one belt per consumer when split
+    const split = s.outSplit && s.outSplit.length > 1 ? s.outSplit : null;
+    const outSide = s.outSide ?? 'center';
+    const outLanes: Lane[] = split
+      ? split.map((c, i) => ({
+          item: g.id, pu: (16 * (i + 1)) / (split.length + 1), fluid: isFluid(g.id),
+          belts: lanesFor(c.rate, g.id, s), to: c.key,
+        }))
+      : [{ item: g.id, pu: outSide === 'left' ? 3 : outSide === 'right' ? 13 : 8, fluid: isFluid(g.id), belts: lanesFor(g.rate, g.id, s) }];
+    return { U: 16, V: 8, src: true, machines: [], inLanes: [], parts, counts, rows: 0, outLanes, outSide, split: !!split };
   }
   const b = g.bld!;
   const n = g.count;
@@ -162,8 +168,16 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
   // them, so the block needs no side strips (only the machines' own foundations)
   const needsTrunk = nRows > 1 || g.inputs.some((_, k) => inBeltsK(k) > 1) || g.outputs.some((f) => outBelts(f) > 1);
   // split output: one belt per consumer (one row only); machines divided by the consumers' demand
+  // (only when every consumer's share fits on one belt; otherwise the normal merged output is used)
   const split =
-    s.outSplit && s.outSplit.length > 1 && nRows === 1 && pr >= s.outSplit.length && g.outputs.length > 0 ? s.outSplit : null;
+    s.outSplit &&
+    s.outSplit.length > 1 &&
+    nRows === 1 &&
+    pr >= s.outSplit.length &&
+    g.outputs.length > 0 &&
+    allocate(pr, s.outSplit.map((x) => x.rate)).every((c) => (g.outputs[0].rate * c) / pr <= capOf(g.outputs[0].item) + 1e-6)
+      ? s.outSplit
+      : null;
   const splitCnt = split ? allocate(pr, split.map((x) => x.rate)) : [];
 
   const powered = g.kind === 'machine' || g.kind === 'generator' || g.kind === 'sink';
@@ -202,7 +216,10 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
   /** Left edge of machine slot i (slots right of the middle shift by the corridor). */
   const slotU = (i: number) => u0 + i * pitch + (corridor && i >= hL ? corridor : 0);
   const slotC = (i: number) => slotU(i) + mOffU + b.w / 2;
-  const uMid = pr > 1 ? (slotC(hL - 1) + slotC(hL)) / 2 : slotC(0);
+  // odd number of machines in one row: the middle point is the middle machine itself, so one 3-way
+  // splitter / merger there serves the left half, the right half and that machine
+  const midMachine = !corridor && pr > 1 && pr % 2 === 1;
+  const uMid = pr <= 1 ? slotC(0) : midMachine ? slotC((pr - 1) / 2) : (slotC(hL - 1) + slotC(hL)) / 2;
   const sIn = Math.min(1.6, (b.w - 1) / Math.max(1, nIn));
   const sOut = Math.min(1.6, (b.w - 1) / Math.max(1, nOut));
   const inOff = (k: number) => (k - (nIn - 1) / 2) * sIn;
@@ -261,7 +278,13 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
   };
   /** Machine positions grouped per belt group, each ordered from the port outwards. */
   const groupsFrom = (side: Side, xs: number[]): number[][] => {
-    if (side === 'center' && xs.length > 1) return [xs.slice(0, Math.min(hL, xs.length)).reverse(), xs.slice(hL)].filter((h) => h.length);
+    if (side === 'center' && xs.length > 1) {
+      if (midMachine && xs.length === pr) {
+        const mid = (pr - 1) / 2;
+        return [xs.slice(0, mid).reverse(), xs.slice(mid + 1), [xs[mid]]].filter((h) => h.length);
+      }
+      return [xs.slice(0, Math.min(hL, xs.length)).reverse(), xs.slice(hL)].filter((h) => h.length);
+    }
     return [side === 'right' ? [...xs].reverse() : xs];
   };
 

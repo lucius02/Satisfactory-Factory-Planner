@@ -34,7 +34,7 @@ export function autoSides(model: Model, pos: Record<string, GroupPos>, local: Re
   };
   const out: Record<string, Sides> = {};
   for (const g of model.groups) {
-    if (!pos[g.key] || g.kind === 'source') continue;
+    if (!pos[g.key]) continue;
     const ins: Record<ItemId, Side> = {};
     for (const i of g.inputs) ins[i.item] = sideOf(g, avg(suppliers(model, i.item).map((s) => centerOf(s.g))), 'left');
     const con = avg(g.outputs.flatMap((o) => (consumers[o.item] ?? []).map(centerOf)));
@@ -45,12 +45,13 @@ export function autoSides(model: Model, pos: Record<string, GroupPos>, local: Re
 
 /** Consumers of a group's main output with the amount each one takes (for a split output). */
 export function consumersOf(model: Model, g: Group): { key: string; rate: number }[] {
-  if (g.kind !== 'machine') return [];
+  const main = g.outputs[0]?.item;
+  if (!main) return [];
   const out: { key: string; rate: number }[] = [];
-  const share = suppliers(model, g.id).find((s) => s.g === g)?.share ?? 0;
+  const share = suppliers(model, main).find((s) => s.g === g)?.share ?? 0;
   for (const u of model.groups)
-    for (const i of u.inputs) if (i.item === g.id && share > 0) out.push({ key: u.key, rate: i.rate * share });
-  const target = model.targets[g.id];
+    for (const i of u.inputs) if (i.item === main && share > 0) out.push({ key: u.key, rate: i.rate * share });
+  const target = g.kind === 'machine' ? model.targets[main] : 0;
   if (target) out.push({ key: '*target', rate: target * share });
   return out;
 }

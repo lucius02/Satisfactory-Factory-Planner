@@ -51,7 +51,7 @@ export function recompute(opts: RecomputeOpts = {}): void {
   );
   // entry / exit side from the positions of suppliers and consumers (unless set in the block)
   ctx.sides = autoSides(ctx.model, state.pos, ctx.local);
-  for (const g of ctx.model.groups) if (!ctx.local[g.key]?.src) ctx.local[g.key] = build(g);
+  for (const g of ctx.model.groups) ctx.local[g.key] = build(g);
   state.cur = Math.min(state.cur || 0, (state.floors || 1) - 1);
   renderAll();
   if (opts.fit) fitView();

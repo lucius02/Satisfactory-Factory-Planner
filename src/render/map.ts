@@ -176,7 +176,7 @@ function drawGroup(g: Group, w: WorldGeom, ghost: boolean): string {
     s += `<text x="${x + ww / 2}" y="${y + hh / 2 - 0.3}" font-size="${fs.toFixed(2)}" font-weight="600" text-anchor="middle" fill="${c}">${esc(name)}</text>`;
     const sub = `${Number.isFinite(g.ex!.per) ? g.count + '× ' : ''}${sourceName(g)}`;
     s += `<text x="${x + ww / 2}" y="${y + hh / 2 + 1.8}" font-size="${Math.min(1.2, (ww - 1) / (sub.length * 0.55)).toFixed(2)}" text-anchor="middle" fill="#aab2bc">${esc(sub)}</text>`;
-    s += line([T(8, L.V - 1.6), T(8, L.V)], c, 0.6, false);
+    for (const l of L.outLanes) s += line([T(l.pu, L.V - 1.6), T(l.pu, L.V)], c, 0.6, false);
     for (const p of L.parts) {
       if (p.t === 'pole') s += drawPole(T(p.u, p.v));
       else if (p.t === 'wire' && state.showWires) s += `<path d="M${T(...p.a).join(' ')}L${T(...p.b).join(' ')}" stroke="#ffd34d" stroke-opacity=".75" stroke-width=".14" pointer-events="none"/>`;

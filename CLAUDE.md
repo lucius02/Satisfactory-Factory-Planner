@@ -58,13 +58,14 @@ Lettertypes komen uit `@fontsource/*` (gebundeld), zodat de desktop-apps offline
   (`inSides` per invoeritem / `outSide`; blokinstelling `inSides`/`side`/`outSide`, anders automatisch via `layout/sides.ts`
   uit de posities van leveranciers/afnemers per item, in `ctx.sides`; breedte hangt niet af van de kant). Een balancer in één rij
   wordt altijd recht boven het midden gevoed. `outSplit` (blokinstelling): hoofduitvoer per afnemer een eigen band
-  (machines verdeeld met `allocate()`, verschil via splitter→merger); `WorldGeom.outFor(item, afnemer)` geeft het uitgangspunt. Meerdere rijen
+  (machines verdeeld met `allocate()`, verschil via splitter→merger); `WorldGeom.outFor(item, afnemer)` geeft het uitgangspunt.
+  Uitvoerkant en splitsen werken bij elk blok met uitvoer, ook grondstofblokken (`consumersOf()` gebruikt de eerste uitvoer). Meerdere rijen
   (max. per rij door instelling én bandcapaciteit), manifold (splitters in serie) of balancerboom, mergers aan de uitvoerkant.
   Eén rij met één band per stroom: invoer direct boven de eerste machine, uitvoer onder de laatste, geen zijstroken;
   blokgrootte = machines + splitter/merger-rijen (1 Constructor = 1×3 foundations). Kabels pole→machine/pole→pole zijn `wire`-parts.
   Te veel voor één band: standaard parallelle banden in dezelfde rij (`capRows` = extra rijen; balancers altijd rijen).
   Per blok (`state.blockOpt[key]`): invoerkant links/midden/rechts (`side`), machines per rij, extra ruimte (`spacing`).
-  Midden: elke rij wordt vanuit het midden naar buiten gevoed; bij meerdere rijen loopt de trunk door een gang van 1 foundation.
+  Midden: elke rij wordt vanuit het midden naar buiten gevoed (oneven aantal: punt bij de middelste machine, één 3-weg splitter/merger); bij meerdere rijen loopt de trunk door een gang van 1 foundation.
   `align` (standaard aan) zet elke machine midden op hele foundations. Geen spiegelen meer.
   Levert tekenbare `parts` en `counts` (splitters/mergers/junctions). `worldGeom()` past positie/rotatie toe.
 - `layout/autoLayout.ts` — `flow` (rijen per productiediepte) of `compact` (shelf-packing), barycentrum-sortering,
