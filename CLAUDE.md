@@ -31,6 +31,8 @@ Lettertypes komen uit `@fontsource/*` (gebundeld), zodat de desktop-apps offline
   PNG-screenshot van de kaart, deelcode). Versturen naar `VITE_FEEDBACK_URL` (`.env` lokaal, repo-variabele `FEEDBACK_URL`
   in de release-workflow); zonder URL wordt de melding als Markdown gekopieerd. `feedback-worker/` = Cloudflare Worker
   die het GitHub-issue maakt (token als Worker-secret, rate limit, bijlagen in branch `feedback-assets`); zie de README daar.
+  `feedback-worker/github/claude-fix.yml` = workflow voor de privé feedback-repo: `@claude` op een issue → Claude maakt een PR
+  in deze repo (branch `claude/feedback-*`).
 - Electron heeft geen auto-updater en wordt niet in CI gebouwd; lokaal via `npm run electron:build`.
 
 `legacy/index.html` is de oude versie in één bestand (alleen ter referentie).
