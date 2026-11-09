@@ -51,7 +51,9 @@ Lettertypes komen uit `@fontsource/*` (gebundeld), zodat de desktop-apps offline
     kringlopen, kloksnelheid begrensd door band/pijp-tier, klokmodus `even`/`fill`/`full`, restproductie → sink/opslag-groepen.
   - `model.ts` — `Group`, `Model`, `suppliers()` (wie levert wat, als aandeel van de totale productie).
   - `balancer.ts` — 1:N balancers uit 1:2/1:3 splitters, loopback voor andere priemfactoren, `balancerCount()`.
-  - `extractors.ts` — miners/extractors (output begrensd door band/pijp).
+  - `extractors.ts` — miners/extractors (output begrensd door band/pijp), met afmetingen (Miner 6×14, Water Extractor 20×19,5,
+    Oil Extractor 8×14, Resource Well Extractor ±6×6). `geomLocal()` tekent ze als gebouwen met merger-manifold;
+    externe aanvoer en kernafval blijven een klein markeringsblok.
   - `recipes.ts` — gekozen recept, productiediepte, alt-telling.
   - `optimize.ts` — `chooseRecipes()`: kiest per product automatisch het beste recept uit de ontgrendelde recepten
     (`state.unlocked`; standaardrecepten altijd beschikbaar), doel `raw`/`power`/`machines`. Handmatige keuzes (`state.rc`) blijven vast.
@@ -68,7 +70,12 @@ Lettertypes komen uit `@fontsource/*` (gebundeld), zodat de desktop-apps offline
   Te veel voor één band: standaard parallelle banden in dezelfde rij (`capRows` = extra rijen; balancers altijd rijen).
   Per blok (`state.blockOpt[key]`): invoerkant links/midden/rechts (`side`), machines per rij, extra ruimte (`spacing`).
   Midden: elke rij wordt vanuit het midden naar buiten gevoed (oneven aantal: punt bij de middelste machine, één 3-weg splitter/merger); bij meerdere rijen loopt de trunk door een gang van 1 foundation.
-  `align` (standaard aan) zet elke machine midden op hele foundations. Geen spiegelen meer.
+  `align` (standaard aan) zet elke machine midden op hele foundations, maar alleen als dat niet meer ruimte kost dan `gap`
+  (anders strak op `gap` m). Meerdere banden/pijpen naast elkaar: belt-part `n` en `parallel()` in de renderer. Vloeistoffen: `state.fluidDist` / blokinstelling `fluidDist`
+  = `manifold`, `loopback` (retourpijp naar het verre eind, wiki-advies tegen klotsen) of `tree` (symmetrische T-junction-boom,
+  `pipeTree()`, vanuit het midden); een echte pipeline-balancer bestaat niet in het spel. Generatoren met vaste brandstof
+  volgen `dist` (balancer); bij een balancer bepalen alleen de vaste invoeren het aantal rijen (vloeistof = parallelle pijpen); een balancerrij
+  neemt tot 2 banden (linker- en rechterhelft elk een eigen balancer, gevoed vanuit het midden), pas daarna extra rijen. Geen spiegelen meer.
   Levert tekenbare `parts` en `counts` (splitters/mergers/junctions). `worldGeom()` past positie/rotatie toe.
 - `layout/autoLayout.ts` — `flow` (rijen per productiediepte) of `compact` (shelf-packing), barycentrum-sortering,
   max. verdiepingsgrootte (`floorW`×`floorL` foundations), verdiepingen; handmatig geplaatste blokken zijn obstakels.

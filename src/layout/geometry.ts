@@ -8,13 +8,13 @@ import type { Group } from '../calc/model';
 import { isFluid } from '../data/items';
 import { LOGISTICS } from '../data/logistics';
 import type { Building, ItemId } from '../data/types';
-import type { BlockOpt, GroupPos } from '../state/types';
+import type { BlockOpt, FluidDist, GroupPos } from '../state/types';
 
 export type Pt = [number, number];
 export type Side = 'left' | 'center' | 'right';
 
 export type Part =
-  | { t: 'belt'; pts: Pt[]; item: ItemId; w: number }
+  | { t: 'belt'; pts: Pt[]; item: ItemId; w: number; n?: number }
   | { t: 'split' | 'merge' | 'junc'; u: number; v: number; item: ItemId }
   | { t: 'loop'; pts: Pt[]; item: ItemId }
   /** `used` = connections already taken inside the group (machines + links to neighbour poles). */
@@ -87,6 +87,8 @@ export interface GeoSettings {
   /** Default entry side for inputs without their own. */
   inSide?: Side;
   outSide?: Side;
+  /** How pipes feed the machines (fluid inputs). */
+  fluidDist?: FluidDist;
   /** Split the main output over these consumers (one output belt each) instead of merging it. */
   outSplit?: { key: string; rate: number }[];
 }
@@ -99,11 +101,20 @@ export const POLE_CONNECTIONS = [4, 7, 10];
 const BAND_SOLID = SPLIT + 0.5; // one splitter / merger row
 const BAND_FLUID = 3; // pipeline junction row
 const LEVEL = 5; // vertical distance between balancer levels
+const LEVEL_F = 3; // vertical distance between levels of a pipe tree
+const LOOP_F = 1.6; // extra room for a loopback pipe
 const LANE_SIDE = 1.6; // distance between trunk lanes on the side
 
-export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
+export function geomLocal(g0: Group, s: GeoSettings): LocalGeom {
   const counts: LogiCount = { splitters: 0, mergers: 0, junctions: 0, poles: 0, wires: 0 };
-  if (g.kind === 'source') {
+  let g = g0;
+  // miners / extractors are drawn as real buildings (merged onto one belt / pipe like a production line);
+  // external supply and the nuclear plant's waste stay a small marker block
+  const ex = g0.ex;
+  if (g0.kind === 'source' && ex?.w && ex.l && Number.isFinite(ex.per)) {
+    const clock = g0.rate / (g0.count * ex.per);
+    g = { ...g0, bld: { n: ex.name, w: ex.w, l: ex.l, mw: ex.mw, c: ex.c ?? '#888' }, clocks: Array(g0.count).fill(clock), inputs: [] };
+  } else if (g.kind === 'source') {
     // extractors need power too (miners, water/oil extractors); external supply does not
     const parts: Part[] = [];
     if ((g.ex?.mw ?? 0) > 0) {
@@ -138,10 +149,13 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
   // with extra rows (or for a balancer) does capacity limit the row length; otherwise a row gets parallel belts.
   const userPerRow = o.perRow && o.perRow > 0 ? o.perRow : s.perRow > 0 ? s.perRow : n;
   let perRowCap = n;
+  const limitsRow = (f: { item: ItemId }) => s.capRows || (balanced && !isFluid(f.item) && g.inputs.includes(f as never));
   if (s.capRows || balanced)
-    for (const f of [...g.inputs, ...g.outputs]) {
+    for (const f of [...g.inputs, ...g.outputs].filter(limitsRow)) {
       const pm = perMachine(f.rate);
-      if (pm > 1e-9) perRowCap = Math.min(perRowCap, Math.max(1, Math.floor(capOf(f.item) / pm + 1e-9)));
+      // a balancer row can take two belts: one balancer for the left half and one for the right half
+      const belts = balanced && !s.capRows ? 2 : 1;
+      if (pm > 1e-9) perRowCap = Math.min(perRowCap, Math.max(1, belts * Math.floor(capOf(f.item) / pm + 1e-9)));
     }
   let pr = Math.max(1, Math.min(userPerRow, perRowCap, n));
   const nRows = Math.ceil(n / pr);
@@ -153,9 +167,12 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
   // where the belts enter / leave: left, middle or right (a balancer is always fed from the side)
   // a balancer is fed from straight above the middle of its row (otherwise the belts cross);
   // with several rows its trunk runs on the left or right
+  const fluidMode = s.fluidDist ?? 'manifold';
+  const fluidTree = fluidMode === 'tree' && pr > 1;
   const inSideOf = (k: number): Side => {
     const sd = s.inSides?.[g.inputs[k].item] ?? s.inSide ?? 'left';
     if (balanced && pr > 1 && !isFluid(g.inputs[k].item)) return nRows === 1 ? 'center' : sd === 'center' ? 'left' : sd;
+    if (fluidTree && isFluid(g.inputs[k].item) && nRows === 1) return 'center';
     return sd;
   };
   const outSide: Side = s.outSide ?? 'right';
@@ -180,12 +197,17 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
       : null;
   const splitCnt = split ? allocate(pr, split.map((x) => x.rate)) : [];
 
-  const powered = g.kind === 'machine' || g.kind === 'generator' || g.kind === 'sink';
-  const balLevels = balanced ? balancerCount(pr).levels : 0;
+  const powered = g.kind === 'machine' || g.kind === 'generator' || g.kind === 'sink' || (g.kind === 'source' && (g.ex?.mw ?? 0) > 0);
+  // two belts into one balancer row: each half gets its own (smaller) balancer tree
+  const balHalves = balanced && g.inputs.some((f) => !isFluid(f.item) && beltsFor(f, pr) > 1);
+  const balLevels = balanced ? balancerCount(balHalves ? Math.ceil(pr / 2) : pr).levels : 0;
   const LANE_STEP = 2.2;
+  const treeLevels = Math.ceil(Math.log2(Math.max(2, pr)));
   const inBand = g.inputs.map((f, k) =>
     isFluid(f.item)
-      ? BAND_FLUID + (inBeltsK(k) - 1) * LANE_STEP
+      ? fluidTree && nRows === 1
+        ? treeLevels * LEVEL_F + 1
+        : BAND_FLUID + (inBeltsK(k) - 1) * LANE_STEP + (fluidMode === 'loopback' ? LOOP_F : 0)
       : balanced
         ? Math.max(1, balLevels) * LEVEL + 1
         : BAND_SOLID + (inBeltsK(k) - 1) * LANE_STEP,
@@ -201,8 +223,12 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
   const align = s.align !== false;
   const extra = Math.max(0, o.spacing ?? 0);
   // with alignment every machine gets whole foundations and sits in the middle of them
-  const cellW = align ? Math.ceil(b.w / 8 - 1e-9) * 8 : b.w;
-  const pitch = align ? cellW + extra * 8 : b.w + s.gap + extra;
+  // centred on whole foundations only when that adds no more room than the chosen gap between machines
+  // (a 10 m building would otherwise take 16 m); otherwise the machines sit `gap` apart
+  const cells = Math.ceil(b.w / 8 - 1e-9) * 8;
+  const onCells = align && cells - b.w <= s.gap + 1e-9;
+  const cellW = onCells ? cells : b.w;
+  const pitch = onCells ? cellW + extra * 8 : b.w + s.gap + extra * (align ? 8 : 1);
   const mOffU = (cellW - b.w) / 2;
   // several rows fed from the middle: a corridor of one foundation in the middle carries the trunk
   const anyCenter = g.inputs.some((_, k) => inSideOf(k) === 'center') || outSide === 'center';
@@ -349,13 +375,33 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
       if (balanced && !lane.fluid && cnt > 1) {
         const rootV = bandTop + LEVEL / 2;
         tap(tapsIn[k], rootV);
-        drawBalancer(balancerTree(cnt), xs, rootV, mV, uEnd + 0.8 + k * 0.6, lane, belt, node, parts);
+        if (beltsFor(f, cnt) > 1) {
+          // two belts arrive in the middle: one goes left, one goes right, each into its own balancer
+          const h = Math.ceil(cnt / 2);
+          for (const half of [xs.slice(0, h), xs.slice(h)]) {
+            if (half.length > 1) drawBalancer(balancerTree(half.length), half, rootV, mV, uEnd + 0.8 + k * 0.6, lane, belt, node, parts);
+            else if (half.length === 1) belt([[lane.pu, rootV], [half[0], rootV], [half[0], mV]], f.item, 0.4);
+          }
+        } else drawBalancer(balancerTree(cnt), xs, rootV, mV, uEnd + 0.8 + k * 0.6, lane, belt, node, parts);
+      } else if (lane.fluid && fluidTree && nRows === 1 && cnt > 1) {
+        // symmetric pipe tree: every machine has an equally long way from the entry
+        const rootV = bandTop + LEVEL_F / 2;
+        tap(tapsIn[k], rootV);
+        drawBalancer(pipeTree(cnt), xs, rootV, mV, uEnd, lane, belt, node, parts, LEVEL_F);
       } else {
         for (const grp of groupsFrom(inSideOf(k), xs))
           chunks(grp, beltsFor(f, grp.length)).forEach((cx, j) => {
-            const v = bandTop + (lane.fluid ? BAND_FLUID : BAND_SOLID) / 2 + j * LANE_STEP;
+            const loop = lane.fluid && fluidMode === 'loopback' && cx.length > 1;
+            const v = bandTop + (loop ? LOOP_F : 0) + (lane.fluid ? BAND_FLUID : BAND_SOLID) / 2 + j * LANE_STEP;
             tap(tapsIn[k], v);
             belt([[lane.pu, v], [cx[cx.length - 1], v]], f.item, w);
+            if (loop) {
+              // loopback (wiki): a second pipe from the entry joins the far end of the manifold, against sloshing
+              const far = cx[cx.length - 1];
+              const lv = v - LOOP_F;
+              belt([[lane.pu, v], [lane.pu, lv], [far, lv], [far, v]], f.item, 0.4);
+              node('merge', far, v, f.item);
+            }
             cx.forEach((x, i) => {
               if (i < cx.length - 1) node('split', x, v, f.item);
               belt([[x, v], [x, mV]], f.item, 0.32);
@@ -421,14 +467,14 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
   // ---- trunks: a splitter / merger wherever two or more belts meet on the trunk
   inLanes.forEach((lane, k) => {
     const vs = [...tapsIn[k].keys()].sort((a, c) => a - c);
-    belt([[lane.pu, 0], [lane.pu, vs[vs.length - 1]]], lane.item, 0.55 + Math.min(0.5, (lane.belts - 1) * 0.25));
+    parts.push({ t: 'belt', pts: [[lane.pu, 0], [lane.pu, vs[vs.length - 1]]], item: lane.item, w: 0.55, n: lane.belts });
     vs.forEach((v, i) => {
       if (tapsIn[k].get(v)! + (i < vs.length - 1 ? 1 : 0) >= 2) node('split', lane.pu, v, lane.item);
     });
   });
   outLanes.forEach((lane, j) => {
     const vs = [...tapsOut[j].keys()].sort((a, c) => a - c);
-    belt([[lane.pu, vs[0]], [lane.pu, V]], lane.item, 0.55 + Math.min(0.5, (lane.belts - 1) * 0.25));
+    parts.push({ t: 'belt', pts: [[lane.pu, vs[0]], [lane.pu, V]], item: lane.item, w: 0.55, n: lane.belts });
     vs.forEach((v, i) => {
       if (tapsOut[j].get(v)! + (i > 0 ? 1 : 0) >= 2) node('merge', lane.pu, v, lane.item);
     });
@@ -465,6 +511,7 @@ function drawBalancer(
   belt: (pts: Pt[], item: ItemId, w?: number) => void,
   node: (t: 'split' | 'merge', u: number, v: number, item: ItemId) => void,
   parts: Part[],
+  LEVEL = 5,
 ): void {
   const item = lane.item;
   let next = 0;
@@ -526,6 +573,12 @@ export function allocate(n: number, rates: number[]): number[] {
     out[best]++;
   }
   return out;
+}
+
+/** Symmetric binary tree of T-junctions for `n` machines (pipes need no loopback). */
+export function pipeTree(n: number): BNode {
+  if (n <= 1) return { t: 'leaf' };
+  return { t: 'split', children: [pipeTree(Math.ceil(n / 2)), pipeTree(Math.floor(n / 2))] };
 }
 
 function lanesFor(rate: number, item: ItemId, s: GeoSettings): number {

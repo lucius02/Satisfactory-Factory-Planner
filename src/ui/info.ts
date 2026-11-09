@@ -56,7 +56,12 @@ function blockSettings(g: Group, outputOnly = false): string {
     ? ''
     : `<div class="field"><label>${t('perRow')}</label><input type="number" min="0" step="1" data-act="perRow" value="${o.perRow ?? 0}" title="0 = ${esc(t('sideAuto'))}"></div>
     <div class="field"><label>${t(state.align ? 'spacingF' : 'spacingM')}</label><input type="number" min="0" step="1" data-act="spacing" value="${o.spacing ?? 0}"></div>`;
-  return `${h2('blockH')}${inRows}${out}${rows}`;
+  const hasFluidIn = !outputOnly && g.inputs.some((i) => isFluid(i.item));
+  const fd = (v: string, label: string) => `<option value="${v}"${(o.fluidDist ?? '') === v ? ' selected' : ''}>${label}</option>`;
+  const fluid = hasFluidIn
+    ? `<div class="field"><label>${t('fluidDistLine')}</label><select data-act="fluidDist">${fd('', esc(t('distDefault', t(state.fluidDist === 'tree' ? 'fdTree' : state.fluidDist === 'loopback' ? 'fdLoopback' : 'fdManifold'))))}${fd('manifold', t('fdManifold'))}${fd('loopback', t('fdLoopback'))}${fd('tree', t('fdTree'))}</select></div>`
+    : '';
+  return `${h2('blockH')}${inRows}${fluid}${out}${rows}`;
 }
 
 function logistics(g: Group): string {
@@ -92,7 +97,7 @@ export function renderInfo(): void {
   if (g.kind === 'source') {
     el.innerHTML = `${head(itemName(g.id), `${t('rawBlock')} · ${size}`)}
       <div class="chips"><span class="chip">${fmt(g.rate)}${unit(g.id)}</span>${Number.isFinite(g.ex!.per) ? `<span class="chip">${g.count}× ${esc(sourceName(g))}</span>` : ''}<span class="chip">${fmt(g.power)} MW</span><span class="chip">${beltFor(g.rate, g.id)}</span></div>
-      <p class="note">${t('rawNote')}</p>${blockSettings(g, true)}${floorRow(p.f)}${acts}`;
+      <p class="note">${t('rawNote')}</p>${blockSettings(g, !ctx.local[g.key] || ctx.local[g.key].src)}${logistics(g)}${floorRow(p.f)}${acts}`;
     return;
   }
 
@@ -216,6 +221,12 @@ export function bindInfo(): void {
       if (s.value) state.rc[g.id] = s.value;
       else delete state.rc[g.id];
       renderRecBtn();
+      recompute();
+    } else if (s.dataset.act === 'fluidDist') {
+      const o = (state.blockOpt[g.key] ??= {});
+      if (s.value) o.fluidDist = s.value as 'manifold' | 'loopback' | 'tree';
+      else delete o.fluidDist;
+      if (!Object.keys(o).length) delete state.blockOpt[g.key];
       recompute();
     } else if (['outSide', 'perRow', 'spacing', 'outSplit'].includes(s.dataset.act ?? '') || s.dataset.act?.startsWith('in:')) {
       const o = (state.blockOpt[g.key] ??= {});

@@ -27,6 +27,7 @@ export const DEFAULT_STATE: State = {
   unlocked: {},
   goal: 'raw',
   distOv: {},
+  fluidDist: 'manifold',
   pos: {},
   external: [],
   layoutMode: 'flow',

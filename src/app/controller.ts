@@ -39,7 +39,8 @@ export function recompute(opts: RecomputeOpts = {}): void {
     }
     return { inSides, outSide: o?.outSide ?? auto?.out, outSplit: o?.outSplit ? consumersOf(ctx.model, g) : undefined };
   };
-  const build = (g: Group) => geomLocal(g, { ...geo, opt: state.blockOpt[g.key], ...sidesOf(g) });
+  const build = (g: Group) =>
+    geomLocal(g, { ...geo, opt: state.blockOpt[g.key], fluidDist: state.blockOpt[g.key]?.fluidDist ?? state.fluidDist, ...sidesOf(g) });
   ctx.local = {};
   for (const g of ctx.model.groups) ctx.local[g.key] = build(g);
   ctx.fits = autoLayout(

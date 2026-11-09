@@ -7,6 +7,9 @@ export type Lang = 'nl' | 'en';
 export type ClockMode = 'even' | 'fill' | 'full';
 /** How a production line distributes its input belt over the machines. */
 export type DistMode = 'manifold' | 'balancer';
+/** How pipes feed the machines. A real pipeline balancer does not exist (fluids balance themselves, wiki);
+ * loopback = manifold with a return pipe against sloshing, tree = symmetric branching with T-junctions. */
+export type FluidDist = 'manifold' | 'loopback' | 'tree';
 /** What happens with surplus (byproducts that are not used, overproduction). */
 export type SurplusMode = 'output' | 'sink' | 'storage';
 
@@ -32,6 +35,8 @@ export interface BlockOpt {
   perRow?: number;
   /** Extra space between the machines (foundations when aligned, else metres). */
   spacing?: number;
+  /** Pipe distribution for this block (unset = global setting). */
+  fluidDist?: FluidDist;
 }
 
 /** Positions and belt waypoints of one plan (factory or power plant). */
@@ -86,6 +91,8 @@ export interface State {
   goal: OptimizeGoal;
   /** Per production line override of `dist`. */
   distOv: Record<string, DistMode>;
+  /** Default pipe distribution for fluid inputs. */
+  fluidDist: FluidDist;
   pos: Record<string, GroupPos>;
   layoutMode: LayoutMode;
   /** Max. floor size in foundations (0 = unlimited). */
@@ -116,6 +123,6 @@ export interface State {
 
 /** Settings that are part of the share code / settings panel. */
 export const SETTING_KEYS = [
-  'miner', 'purity', 'clockMode', 'gap', 'perRow', 'floors', 'belt', 'pipe', 'dist', 'balSmooth', 'surplus', 'reuse', 'snap', 'goal', 'layoutMode', 'floorW', 'floorL', 'pole', 'produceFuel', 'showWires', 'daisy', 'align', 'capRows',
+  'miner', 'purity', 'clockMode', 'gap', 'perRow', 'floors', 'belt', 'pipe', 'dist', 'balSmooth', 'fluidDist', 'surplus', 'reuse', 'snap', 'goal', 'layoutMode', 'floorW', 'floorL', 'pole', 'produceFuel', 'showWires', 'daisy', 'align', 'capRows',
 ] as const;
 export type SettingKey = (typeof SETTING_KEYS)[number];

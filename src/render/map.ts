@@ -107,6 +107,21 @@ function drawPowerNet(cur: number): string {
   return h;
 }
 
+/**
+ * Draw `n` belts / pipes side by side. Shifting an orthogonal path diagonally offsets both its horizontal
+ * and its vertical parts, so the copies stay parallel.
+ */
+function parallel(pts: Pt[], n: number, draw: (pts: Pt[]) => string): string {
+  if (n <= 1) return draw(pts);
+  const step = 0.85;
+  let s = '';
+  for (let i = 0; i < n; i++) {
+    const d = (i - (n - 1) / 2) * step;
+    s += draw(pts.map(([x, y]) => [x + d, y + d] as Pt));
+  }
+  return s;
+}
+
 /** Foundation lines (8 m) inside a block, so its width in foundations is easy to count. */
 function foundationGrid(w: WorldGeom): string {
   let d = '';
@@ -183,7 +198,7 @@ function drawGroup(g: Group, w: WorldGeom, ghost: boolean): string {
     }
   } else {
     for (const p of L.parts) {
-      if (p.t === 'belt') s += line(p.pts.map(([u, v]) => T(u, v)), col(p.item), p.w, isFluid(p.item));
+      if (p.t === 'belt') s += parallel(p.pts.map(([u, v]) => T(u, v)), p.n ?? 1, (q) => line(q, col(p.item), p.w, isFluid(p.item)));
       else if (p.t === 'loop')
         s += `<path d="${P(p.pts.map(([u, v]) => T(u, v)))}" stroke="${col(p.item)}" stroke-width=".35" fill="none" stroke-dasharray=".8 .5" marker-end="url(#arr)"/>`;
     }
@@ -213,7 +228,7 @@ function drawGroup(g: Group, w: WorldGeom, ghost: boolean): string {
       s += `<rect x="${a[0]}" y="${a[1]}" width="${bw}" height="${bh}" rx=".4" fill="${bd.c}" fill-opacity=".22" stroke="${bd.c}" stroke-width=".25"/>`;
       const fs = Math.min(1.3, (bw - 0.8) / (bd.n.length * 0.6));
       s += `<text x="${a[0] + bw / 2}" y="${a[1] + bh / 2 - 0.2}" font-size="${fs.toFixed(2)}" text-anchor="middle" fill="#d8d4cc">${esc(bd.n)}</text>`;
-      if (g.kind === 'machine' || g.kind === 'generator')
+      if (g.kind === 'machine' || g.kind === 'generator' || g.kind === 'source')
         s += `<text x="${a[0] + bw / 2}" y="${a[1] + bh / 2 + 1.5}" font-size="${Math.min(1.4, bw / 5).toFixed(2)}" text-anchor="middle" fill="${m.clock < 0.999 ? '#ffb85c' : '#9aa3ad'}" font-family="JetBrains Mono,monospace">${pct(m.clock)}</text>`;
     }
   }
@@ -331,8 +346,14 @@ export function renderMap(opts: { fast?: boolean } = {}): void {
     const fl = isFluid(c.item);
     const col_ = col(c.item);
     const pts = c.pts;
-    h += `<path d="${P(pts)}" fill="none" stroke="#0d0f12" stroke-width="1.5" stroke-linejoin="round"/>`;
-    h += `<path d="${P(pts)}" fill="none" stroke="${col_}" stroke-width=".7" stroke-linejoin="round"${fl ? ' stroke-dasharray="1.6 .8"' : ''}${c.touch ? '' : ' marker-end="url(#arr)"'}/>`;
+    const nBelts = Math.max(1, Math.ceil(c.rate / (fl ? model.caps.pipe : model.caps.belt) - 1e-6));
+    h += parallel(pts, nBelts, (q) => `<path d="${P(q)}" fill="none" stroke="#0d0f12" stroke-width="1.5" stroke-linejoin="round"/>`);
+    h += parallel(
+      pts,
+      nBelts,
+      (q) =>
+        `<path d="${P(q)}" fill="none" stroke="${col_}" stroke-width=".7" stroke-linejoin="round"${fl ? ' stroke-dasharray="1.6 .8"' : ''}${c.touch ? '' : ' marker-end="url(#arr)"'}/>`,
+    );
     // blocks against each other: the last piece is (almost) zero long, so draw the arrow into the block ourselves
     if (c.touch) {
       const [bx, by] = pts[pts.length - 1];

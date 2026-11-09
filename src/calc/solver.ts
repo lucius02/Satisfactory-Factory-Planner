@@ -56,7 +56,8 @@ export function compute(p: PlanInput): Model {
     genGroups.push({
       key: `g:${i}`, id: f.item, kind: 'generator', bld: { n: G.n, w: G.w, l: G.l, mw: 0, c: G.c }, rate: G.mw * exact,
       exact, count, clocks: Array(count).fill(exact / count), maxClock: 1, power: 0, gen: G.mw * exact, inputs,
-      outputs: Object.entries(f.waste ?? {}).map(([item, r]) => ({ item, rate: r * exact })), dist: 'manifold',
+      outputs: Object.entries(f.waste ?? {}).map(([item, r]) => ({ item, rate: r * exact })),
+      dist: isFluid(f.item) ? 'manifold' : p.distOv[`g:${i}`] ?? p.dist,
     });
   });
 

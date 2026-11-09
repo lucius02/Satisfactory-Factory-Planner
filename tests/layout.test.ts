@@ -173,7 +173,8 @@ describe('per-input sides, balancer and split output', () => {
   it('feeds a single-row balancer from the middle, without side strips', () => {
     const L = geomLocal({ ...asm, dist: 'balancer' }, { gap: 2, perRow: 8, caps: model.caps, align: true, inSide: 'left' });
     expect(Object.values(L.inSides!)).toEqual(['center', 'center']);
-    expect(L.U / 8).toBe(Math.ceil(asm.count * 16 / 8));
+    // 10 m assemblers with 2 m gap: packed at 12 m (centring on 16 m foundations would waste 6 m)
+    expect(L.U).toBe(Math.ceil((asm.count * 10 + (asm.count - 1) * 2) / 8) * 8);
   });
   it('splits the output over consumers with a balancing splitter', async () => {
     const { allocate } = await import('../src/layout/geometry');
@@ -214,9 +215,14 @@ describe('output options for every block with an output', () => {
     const cons = consumersOf(model, src);
     expect(cons.length).toBeGreaterThan(0);
     const base = { gap: 2, perRow: 8, caps: model.caps };
-    expect(geomLocal(src, { ...base, outSide: 'left' }).outLanes[0].pu).toBe(3);
-    expect(geomLocal(src, { ...base, outSide: 'right' }).outLanes[0].pu).toBe(13);
-    const L = geomLocal(src, { ...base, outSplit: [{ key: 'a', rate: 60 }, { key: 'b', rate: 30 }] });
+    // the miners are drawn as buildings (6 × 14 m)
+    const left = geomLocal(src, { ...base, outSide: 'left' });
+    expect(left.src).toBe(false);
+    expect(left.machines).toHaveLength(src.count);
+    expect(left.machines[0].w).toBe(6);
+    if (src.count > 1) expect(left.outLanes[0].pu).toBeLessThan(geomLocal(src, { ...base, outSide: 'right' }).outLanes[0].pu);
+    // two consumers that each need half: 2 + 2 miners, each half fits on one Mk3 belt
+    const L = geomLocal(src, { ...base, outSplit: [{ key: 'a', rate: src.rate / 2 }, { key: 'b', rate: src.rate / 2 }] });
     expect(L.split).toBe(true);
     expect(L.outLanes.map((l) => l.to)).toEqual(['a', 'b']);
   });
@@ -287,5 +293,72 @@ describe('input sides on a single machine', () => {
     expect(rotor.count).toBe(1);
     expect(rodAt('left')).toBeLessThan(rodAt('center'));
     expect(rodAt('center')).toBeLessThan(rodAt('right'));
+  });
+});
+
+describe('gap between machines with foundation alignment', () => {
+  it('0 m gap packs 10 m wide generators side by side', async () => {
+    const m = compute({
+      targets: [], external: [], rc: {}, miner: 1, purity: 1, clockMode: 'even', belt: 2, pipe: 1, reuse: true,
+      surplus: 'output', dist: 'balancer', distOv: {}, balSmooth: false, gens: [{ gen: 'coal', fuel: 'coal', mode: 'count', value: 8 }],
+    });
+    const g = m.byKey['g:0'];
+    expect(g.dist).toBe('balancer');
+    const L = geomLocal(g, { gap: 0, perRow: 0, caps: m.caps, align: true });
+    expect(L.machines[1].u - L.machines[0].u).toBe(10);
+    // balancer tree: more than one splitter level for 8 machines
+    expect(L.parts.filter((p) => p.t === 'split').length).toBeGreaterThanOrEqual(7);
+  });
+});
+
+describe('balancer rows and extractors', () => {
+  it('a balancer with water in parallel pipes stays in one row', () => {
+    const m = compute({
+      targets: [], external: [], rc: {}, miner: 1, purity: 1, clockMode: 'even', belt: 2, pipe: 1, reuse: true,
+      surplus: 'output', dist: 'balancer', distOv: {}, balSmooth: false, gens: [{ gen: 'coal', fuel: 'coal', mode: 'count', value: 8 }],
+    });
+    const L = geomLocal(m.byKey['g:0'], { gap: 0, perRow: 0, caps: m.caps, align: true });
+    expect(L.rows).toBe(1);
+    const water = geomLocal(m.byKey['s:water'], { gap: 0, perRow: 0, caps: m.caps, align: true });
+    expect(water.machines).toHaveLength(3);
+    expect(water.machines[0].w).toBe(20);
+  });
+});
+
+describe('pipe distribution', () => {
+  const ref = compute({
+    targets: [{ item: 'plastic', rate: 120 }], external: [], rc: {}, miner: 2, purity: 1, clockMode: 'even', belt: 3, pipe: 2,
+    reuse: true, surplus: 'output', dist: 'manifold', distOv: {}, balSmooth: false,
+  }).byKey['m:plastic'];
+  const base = { gap: 2, perRow: 0, caps: { belt: 270, pipe: 600 }, align: true };
+  const juncsIn = (L: ReturnType<typeof geomLocal>) =>
+    L.parts.filter((p) => p.t === 'junc' && p.item === 'crude-oil').length;
+
+  it('tree: symmetric T-junctions from the middle, one junction less than machines', () => {
+    expect(ref.count).toBe(6);
+    const L = geomLocal(ref, { ...base, fluidDist: 'tree' });
+    expect(L.inSides!['crude-oil']).toBe('center');
+    expect(juncsIn(L)).toBe(ref.count - 1);
+  });
+  it('loopback adds a return pipe and a junction at the far end', () => {
+    const plain = juncsIn(geomLocal(ref, base));
+    const loop = juncsIn(geomLocal(ref, { ...base, fluidDist: 'loopback' }));
+    expect(loop).toBe(plain + 1);
+  });
+});
+
+describe('balancer with two belts in one row', () => {
+  it('5 smelters on Mk2 belts (144 ore/min) stay in one row with two balancers', () => {
+    const m = compute({
+      targets: [{ item: 'iron-ingot', rate: 144 }], external: [], rc: {}, miner: 2, purity: 1, clockMode: 'even', belt: 2, pipe: 1,
+      reuse: true, surplus: 'output', dist: 'balancer', distOv: {}, balSmooth: false,
+    });
+    const g = m.byKey['m:iron-ingot'];
+    expect(g.count).toBe(5);
+    const L = geomLocal(g, { gap: 2, perRow: 0, caps: m.caps, align: true });
+    expect(L.rows).toBe(1);
+    expect(L.inLanes[0].belts).toBe(2);
+    // 1:3 balancer (1 splitter) + 1:2 balancer (1 splitter)
+    expect(L.parts.filter((p) => p.t === 'split').length).toBe(2);
   });
 });
