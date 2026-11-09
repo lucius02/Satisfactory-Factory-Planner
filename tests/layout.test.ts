@@ -130,8 +130,8 @@ describe('rows, parallel belts and block settings', () => {
     expect(L.machines[1].u - L.machines[0].u).toBe(16);
   });
   it('feeds from the middle also with several rows (corridor in the middle)', () => {
-    const L = geomLocal(smelt, { ...base, perRow: 4, opt: { side: 'center' } });
-    expect(L.center).toBe(true);
+    const L = geomLocal(smelt, { ...base, perRow: 4, inSide: 'center' });
+    expect(L.inSide).toBe('center');
     expect(L.rows).toBeGreaterThan(1);
     const pu = L.inLanes[0].pu;
     // no machine sits on the trunk
@@ -145,11 +145,29 @@ describe('rows, parallel belts and block settings', () => {
     }).byKey['m:iron-plate'];
     expect(geomLocal(two, base).U / 8).toBe(2);
     expect(geomLocal(two, { ...base, opt: { spacing: 1 } }).U / 8).toBe(3);
+    for (const inSide of ['left', 'center', 'right'] as const)
+      for (const outSide of ['left', 'center', 'right'] as const) {
+        const L = geomLocal(two, { ...base, inSide, outSide });
+        expect([L.U / 8, L.inSide, L.outSide]).toEqual([2, inSide, outSide]);
+      }
+    // middle: the entry lies between the two machines
+    const C = geomLocal(two, { ...base, inSide: 'center' });
+    expect(C.inLanes[0].pu).toBeCloseTo(8, 0);
   });
   it('feeds from the middle when asked and possible', () => {
     const g = model.groups.find((x) => x.key === 'm:modular-frame')!;
-    const L = geomLocal(g, { gap: 2, perRow: 8, caps: model.caps, align: true, opt: { side: 'center' } });
-    expect(L.center).toBe(true);
+    const L = geomLocal(g, { gap: 2, perRow: 8, caps: model.caps, align: true, inSide: 'center' });
+    expect(L.inSide).toBe('center');
     expect(Math.abs(L.inLanes[0].pu - L.U / 2)).toBeLessThan(8);
+  });
+});
+
+describe('straighten', () => {
+  it('removes small jogs but keeps both ends', async () => {
+    const { straighten } = await import('../src/render/router');
+    const out = straighten([[0, 0], [0, 10], [1, 10], [1, 30], [20, 30]]);
+    expect(out[0]).toEqual([0, 0]);
+    expect(out[out.length - 1]).toEqual([20, 30]);
+    expect(out).toHaveLength(3);
   });
 });

@@ -50,21 +50,23 @@ Lettertypes komen uit `@fontsource/*` (gebundeld), zodat de desktop-apps offline
   - `optimize.ts` — `chooseRecipes()`: kiest per product automatisch het beste recept uit de ontgrendelde recepten
     (`state.unlocked`; standaardrecepten altijd beschikbaar), doel `raw`/`power`/`machines`. Handmatige keuzes (`state.rc`) blijven vast.
     Effectieve recepten = `{ ...ctx.auto, ...state.rc }` (`effectiveRc()` in de controller).
-- `layout/geometry.ts` — `geomLocal()` legt één groep neer: invoer links-boven, uitvoer rechts-onder, meerdere rijen
+- `layout/geometry.ts` — `geomLocal()` legt één groep neer: invoer boven, uitvoer onder, elk links/midden/rechts
+  (`inSide`/`outSide`; blokinstelling `side`/`outSide`, anders automatisch via `layout/sides.ts` uit de posities van
+  leveranciers/afnemers, opgeslagen in `ctx.sides`; breedte hangt niet af van de kant). Meerdere rijen
   (max. per rij door instelling én bandcapaciteit), manifold (splitters in serie) of balancerboom, mergers aan de uitvoerkant.
   Eén rij met één band per stroom: invoer direct boven de eerste machine, uitvoer onder de laatste, geen zijstroken;
   blokgrootte = machines + splitter/merger-rijen (1 Constructor = 1×3 foundations). Kabels pole→machine/pole→pole zijn `wire`-parts.
   Te veel voor één band: standaard parallelle banden in dezelfde rij (`capRows` = extra rijen; balancers altijd rijen).
   Per blok (`state.blockOpt[key]`): invoerkant links/midden/rechts (`side`), machines per rij, extra ruimte (`spacing`).
   Midden: elke rij wordt vanuit het midden naar buiten gevoed; bij meerdere rijen loopt de trunk door een gang van 1 foundation.
-  `align` (standaard aan) zet elke machine midden op hele foundations. `GroupPos.mirror` spiegelt een blok (invoer rechts);
-  de auto-indeling spiegelt als de leveranciers rechts liggen.
+  `align` (standaard aan) zet elke machine midden op hele foundations. Geen spiegelen meer.
   Levert tekenbare `parts` en `counts` (splitters/mergers/junctions). `worldGeom()` past positie/rotatie toe.
 - `layout/autoLayout.ts` — `flow` (rijen per productiediepte) of `compact` (shelf-packing), barycentrum-sortering,
   max. verdiepingsgrootte (`floorW`×`floorL` foundations), verdiepingen; handmatig geplaatste blokken zijn obstakels.
 - `render/router.ts` — A*-bandrouter op een raster van 2 m om blokken heen (weinig bochten, niet over andere banden).
   Sleeppunt per verbinding in `state.beltOff`, relatief t.o.v. het midden tussen beide band-uiteinden (beweegt mee met de blokken).
-  Tijdens slepen snelle route, bij loslaten A*. Blokken tegen elkaar (`touching()`): directe band langs de naad, zonder label;
+  Tijdens slepen snelle route, bij loslaten A*. Blokken tegen elkaar (`touching()`): directe band langs de naad, zonder label, met eigen pijlpunt;
+  `straighten()` haalt kleine haakjes uit A*-routes;
   klik op een band (`.belt-hit`) toont item, hoeveelheid en bandtype. Labels langs verticale banden staan verticaal.
 - Twee pagina's: `state.page` = `factory` of `power`. `state.pos`/`state.beltWp` horen altijd bij de open pagina, de andere
   staat in `state.otherLayout` (`switchPage()` wisselt ze). `planInput()` in de controller bouwt de solver-invoer per pagina;

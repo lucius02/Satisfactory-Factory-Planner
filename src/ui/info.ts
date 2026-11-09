@@ -32,12 +32,16 @@ function floorRow(f: number): string {
 function blockSettings(g: Group): string {
   const o = state.blockOpt[g.key] ?? {};
   const L = ctx.local[g.key];
-  const opt = (v: string, label: string, cur: string) => `<option value="${v}"${v === cur ? ' selected' : ''}>${label}</option>`;
+  const name = (side?: string) => t(side === 'center' ? 'sideCenter' : side === 'right' ? 'sideRight' : 'sideLeft');
+  const sel = (act: string, cur: string | undefined, auto: string | undefined) =>
+    `<select data-act="${act}"><option value=""${!cur ? ' selected' : ''}>${esc(t('sideAutoIs', name(auto)))}</option>${(['left', 'center', 'right'] as const)
+      .map((v) => `<option value="${v}"${v === cur ? ' selected' : ''}>${name(v)}</option>`)
+      .join('')}</select>`;
   return `${h2('blockH')}
-    <div class="field"><label>${t('inSide')}</label><select data-act="side">${opt('', t('sideAuto'), o.side ?? '')}${opt('left', t('sideLeft'), o.side ?? '')}${opt('center', t('sideCenter'), o.side ?? '')}${opt('right', t('sideRight'), o.side ?? '')}</select></div>
+    <div class="field"><label>${t('inSide')}</label>${sel('side', o.side, L?.inSide)}</div>
+    ${g.outputs.length ? `<div class="field"><label>${t('outSide')}</label>${sel('outSide', o.outSide, L?.outSide)}</div>` : ''}
     <div class="field"><label>${t('perRow')}</label><input type="number" min="0" step="1" data-act="perRow" value="${o.perRow ?? 0}" title="0 = ${esc(t('sideAuto'))}"></div>
-    <div class="field"><label>${t(state.align ? 'spacingF' : 'spacingM')}</label><input type="number" min="0" step="1" data-act="spacing" value="${o.spacing ?? 0}"></div>
-    ${o.side === 'center' && L && !L.center ? `<p class="note">${t('centerNote')}</p>` : ''}`;
+    <div class="field"><label>${t(state.align ? 'spacingF' : 'spacingM')}</label><input type="number" min="0" step="1" data-act="spacing" value="${o.spacing ?? 0}"></div>`;
 }
 
 function logistics(g: Group): string {
@@ -66,7 +70,7 @@ export function renderInfo(): void {
   const p = state.pos[g.key];
   const w = ctx.world[g.key];
   const size = `${w.W / 8} × ${w.H / 8} foundations`;
-  const acts = `<div class="mt-3 flex flex-wrap gap-1.5"><button class="btn btn-sm" data-act="rot">${t('rotate')}</button><button class="btn btn-sm" data-act="mirror">${t('mirror')}</button>${p.manual ? `<button class="btn btn-sm" data-act="auto">${t('backAuto')}</button>` : ''}<button class="btn btn-sm" data-act="close">${t('close')}</button></div>`;
+  const acts = `<div class="mt-3 flex flex-wrap gap-1.5"><button class="btn btn-sm" data-act="rot">${t('rotate')}</button>${p.manual ? `<button class="btn btn-sm" data-act="auto">${t('backAuto')}</button>` : ''}<button class="btn btn-sm" data-act="close">${t('close')}</button></div>`;
   const head = (title: string, meta: string) =>
     `<h3 class="m-0 font-head text-[21px] font-bold tracking-wide">${esc(title)}</h3><div class="mb-2.5 mt-0.5 text-[12.5px] text-muted">${meta}</div>`;
 
@@ -163,14 +167,6 @@ export function rotateSelected(): void {
   saveState(state);
 }
 
-export function mirrorSelected(): void {
-  const key = ctx.sel;
-  const p = key ? state.pos[key] : undefined;
-  if (!key || !p) return;
-  (state.blockOpt[key] ??= {}).side = p.mirror ? 'left' : 'right';
-  recompute();
-}
-
 export function bindInfo(): void {
   const el = $('#info');
   el.addEventListener('click', (e) => {
@@ -178,7 +174,6 @@ export function bindInfo(): void {
     if (!a || a.tagName === 'SELECT' || !ctx.sel) return;
     const act = a.dataset.act;
     if (act === 'rot') rotateSelected();
-    else if (act === 'mirror') mirrorSelected();
     else if (act === 'auto') {
       delete state.pos[ctx.sel];
       recompute();
@@ -207,11 +202,12 @@ export function bindInfo(): void {
       else delete state.rc[g.id];
       renderRecBtn();
       recompute();
-    } else if (s.dataset.act === 'side' || s.dataset.act === 'perRow' || s.dataset.act === 'spacing') {
+    } else if (['side', 'outSide', 'perRow', 'spacing'].includes(s.dataset.act ?? '')) {
       const o = (state.blockOpt[g.key] ??= {});
-      if (s.dataset.act === 'side') {
-        if (s.value) o.side = s.value as 'left' | 'center' | 'right';
-        else delete o.side;
+      if (s.dataset.act === 'side' || s.dataset.act === 'outSide') {
+        const k = s.dataset.act as 'side' | 'outSide';
+        if (s.value) o[k] = s.value as 'left' | 'center' | 'right';
+        else delete o[k];
       } else {
         const v = Math.max(0, Math.round(Number(s.value) || 0));
         if (v) o[s.dataset.act as 'perRow' | 'spacing'] = v;

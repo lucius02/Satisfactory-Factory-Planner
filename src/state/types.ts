@@ -22,6 +22,8 @@ export type Page = 'factory' | 'power';
 export interface BlockOpt {
   /** Where the input belts enter: left, middle or right (unset = automatic left/right). */
   side?: 'left' | 'center' | 'right';
+  /** Where the output belts leave: left, middle or right (unset = automatic). */
+  outSide?: 'left' | 'center' | 'right';
   /** Machines per row for this block (unset = global setting). */
   perRow?: number;
   /** Extra space between the machines (foundations when aligned, else metres). */
@@ -44,8 +46,6 @@ export interface GroupPos {
   x: number;
   y: number;
   rot: 0 | 1;
-  /** Mirrored: inputs on the right, outputs on the left. */
-  mirror?: 0 | 1;
   f: number;
   manual?: boolean;
 }

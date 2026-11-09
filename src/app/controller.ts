@@ -5,6 +5,7 @@ import { GENERATORS, genFuel } from '../data/generators';
 import { applyStaticTexts } from '../i18n';
 import { autoLayout } from '../layout/autoLayout';
 import { geomLocal } from '../layout/geometry';
+import { autoSides } from '../layout/sides';
 import { fitView, renderMap } from '../render/map';
 import { saveState, state } from '../state/store';
 import { renderInfo } from '../ui/info';
@@ -26,8 +27,12 @@ export function recompute(opts: RecomputeOpts = {}): void {
   ctx.model = compute({ ...planInput(), rc: effectiveRc() });
   if (ctx.sel && !ctx.model.byKey[ctx.sel]) ctx.sel = null;
   const geo = { gap: state.gap, perRow: state.perRow, caps: ctx.model.caps, pole: state.pole, align: state.align, capRows: state.capRows };
+  const sidesOf = (key: string) => {
+    const o = state.blockOpt[key];
+    return { inSide: o?.side ?? ctx.sides[key]?.in, outSide: o?.outSide ?? ctx.sides[key]?.out };
+  };
   ctx.local = {};
-  for (const g of ctx.model.groups) ctx.local[g.key] = geomLocal(g, { ...geo, opt: state.blockOpt[g.key] });
+  for (const g of ctx.model.groups) ctx.local[g.key] = geomLocal(g, { ...geo, opt: state.blockOpt[g.key], ...sidesOf(g.key) });
   ctx.fits = autoLayout(
     ctx.model,
     state.pos,
@@ -35,12 +40,13 @@ export function recompute(opts: RecomputeOpts = {}): void {
     (g) => ctx.local[g.key],
     opts.force,
   );
-  // a chosen input side overrides the automatic mirroring
+  // entry / exit side from the positions of suppliers and consumers (unless set in the block)
+  ctx.sides = autoSides(ctx.model, state.pos, ctx.local);
   for (const g of ctx.model.groups) {
-    const side = state.blockOpt[g.key]?.side;
-    const p = state.pos[g.key];
-    if (p && (side === 'left' || side === 'right')) p.mirror = side === 'right' ? 1 : 0;
-    if (p && side === 'center') p.mirror = 0;
+    const s = sidesOf(g.key);
+    const L = ctx.local[g.key];
+    if (L && !L.src && (L.inSide !== s.inSide || L.outSide !== s.outSide))
+      ctx.local[g.key] = geomLocal(g, { ...geo, opt: state.blockOpt[g.key], ...s });
   }
   state.cur = Math.min(state.cur || 0, (state.floors || 1) - 1);
   renderAll();

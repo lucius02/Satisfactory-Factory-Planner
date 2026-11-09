@@ -180,3 +180,35 @@ class MinHeap {
     return top;
   }
 }
+
+/**
+ * Remove small jogs (Z-shapes of at most `max` metres) that come from snapping the route to the grid:
+ * the middle part of the Z is moved so the two parallel segments line up. Start and end stay put.
+ */
+export function straighten(input: Pt[], max = 2.6): Pt[] {
+  let pts = simplify(input.map((p) => [p[0], p[1]] as Pt));
+  for (let guard = 0; guard < 20; guard++) {
+    let changed = false;
+    for (let i = 1; i + 2 < pts.length; i++) {
+      const [p0, p1, p2, p3] = [pts[i - 1], pts[i], pts[i + 1], pts[i + 2]];
+      const horiz = (a: Pt, b: Pt) => Math.abs(a[1] - b[1]) < 1e-6;
+      const len = Math.abs(p1[0] - p2[0]) + Math.abs(p1[1] - p2[1]);
+      if (len > max || len < 1e-6) continue;
+      // p1→p2 is the short jog; p0→p1 and p2→p3 must be parallel
+      if (horiz(p0, p1) !== horiz(p2, p3)) continue;
+      const along = horiz(p0, p1) ? 1 : 0; // coordinate that differs across the jog
+      if (i + 2 < pts.length - 1) {
+        // move p2, p3 onto the line of p0→p1
+        p2[along] = p1[along];
+        p3[along] = p1[along];
+      } else if (i - 1 > 0) {
+        p0[along] = p2[along];
+        p1[along] = p2[along];
+      } else continue;
+      changed = true;
+    }
+    pts = simplify(pts);
+    if (!changed) break;
+  }
+  return pts;
+}

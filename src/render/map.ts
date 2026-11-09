@@ -4,7 +4,7 @@ import { suppliers, type Group } from '../calc/model';
 import { isFluid, itemName } from '../data/items';
 import { t } from '../i18n';
 import { POLE_CONNECTIONS, worldGeom, type Pt, type WorldGeom } from '../layout/geometry';
-import { ortho, Router, simplify } from './router';
+import { ortho, Router, simplify, straighten } from './router';
 import { powerNetwork } from '../layout/powerNet';
 import { state } from '../state/store';
 import { beltFor, col, esc, fmt, fmtInt, fname, hue, pct, unit } from '../util/format';
@@ -44,7 +44,7 @@ function touching(a: Pt, da: Pt, b: Pt): Pt[] | null {
   if (side < 1e-6) return [a, b];
   const m: Pt = [a[0] + (da[0] * ahead) / 2, a[1] + (da[1] * ahead) / 2];
   const m2: Pt = da[1] !== 0 ? [b[0], m[1]] : [m[0], b[1]];
-  return [a, m, m2, b];
+  return simplify([a, m, m2, b]);
 }
 
 /** Route a belt from output `a` (direction da) to input `b` (direction db), optionally via a waypoint. */
@@ -71,7 +71,7 @@ function routeBelt(router: Router | null, a: Pt, da: Pt, b: Pt, db: Pt, wp: [num
     pts.push(...ortho(pts[pts.length - 1], stop, i === legs.length - 1 ? db[1] === 0 : true).slice(1));
   });
   pts.push(b);
-  return simplify(pts);
+  return straighten(pts);
 }
 
 function drawPole([x, y]: Pt, extra = false): string {
@@ -223,7 +223,14 @@ function drawGroup(g: Group, w: WorldGeom, ghost: boolean): string {
   else if (g.kind === 'storage') title = `${t('storageBlock')}: ${itemName(g.id)} · ${fmt(g.rate)}${unit(g.id)}`;
   else if (g.kind === 'generator') title = `${groupTitle(g)} · ${fmtInt(g.gen ?? 0)} MW · ${g.count}×`;
   else title = `${groupTitle(g)} · ${fmt(g.rate)}${unit(g.id)} · ${g.count}× ${g.bld!.n}`;
-  s += `<text x="${w.x + 0.3}" y="${w.y - 0.9}" font-size="1.9" font-weight="600" fill="${ctx.sel === g.key ? '#ffb85c' : '#e8e4db'}">${esc(title)}</text>`;
+  // the title must fit above its own block (narrow blocks: smaller text, then the short title)
+  const room = w.W - 0.6;
+  let fs = Math.min(1.9, room / (title.length * 0.56));
+  if (fs < 1.1) {
+    title = g.kind === 'source' ? itemName(g.id) : `${groupTitle(g)} · ${g.count}×`;
+    fs = Math.max(0.9, Math.min(1.9, room / (title.length * 0.56)));
+  }
+  s += `<text x="${w.x + 0.3}" y="${w.y - 0.9}" font-size="${fs.toFixed(2)}" font-weight="600" fill="${ctx.sel === g.key ? '#ffb85c' : '#e8e4db'}"><title>${esc(title)}</title>${esc(title)}</text>`;
   return s + '</g>';
 }
 
@@ -259,7 +266,7 @@ export function renderMap(opts: { fast?: boolean } = {}): void {
   }
 
   // belts between groups
-  interface Conn { key: string; item: string; rate: number; pts: Pt[]; label: boolean }
+  interface Conn { key: string; item: string; rate: number; pts: Pt[]; label: boolean; touch?: Pt }
   const conns: Conn[] = [];
   let lifts = '';
   const jobs: { key: string; item: string; rate: number; a: Pt; da: Pt; b: Pt; db: Pt; pre: Pt[]; post: Pt[]; label: boolean }[] = [];
@@ -311,7 +318,10 @@ export function renderMap(opts: { fast?: boolean } = {}): void {
     if (!opts.fast) routeCache = { key: cacheKey, routes: routed };
   }
   // belts between blocks that touch get no text (click them to see what runs over them)
-  for (const j of jobs) conns.push({ key: j.key, item: j.item, rate: j.rate, pts: routed[j.key], label: j.label && !touching(j.a, j.da, j.b) });
+  for (const j of jobs) {
+    const touch = !!touching(j.a, j.da, j.b);
+    conns.push({ key: j.key, item: j.item, rate: j.rate, pts: routed[j.key], label: j.label && !touch, touch: touch ? j.db : undefined });
+  }
 
   let labels = '';
   let handles = '';
@@ -322,7 +332,16 @@ export function renderMap(opts: { fast?: boolean } = {}): void {
     const col_ = col(c.item);
     const pts = c.pts;
     h += `<path d="${P(pts)}" fill="none" stroke="#0d0f12" stroke-width="1.5" stroke-linejoin="round"/>`;
-    h += `<path d="${P(pts)}" fill="none" stroke="${col_}" stroke-width=".7" stroke-linejoin="round"${fl ? ' stroke-dasharray="1.6 .8"' : ''} marker-end="url(#arr)"/>`;
+    h += `<path d="${P(pts)}" fill="none" stroke="${col_}" stroke-width=".7" stroke-linejoin="round"${fl ? ' stroke-dasharray="1.6 .8"' : ''}${c.touch ? '' : ' marker-end="url(#arr)"'}/>`;
+    // blocks against each other: the last piece is (almost) zero long, so draw the arrow into the block ourselves
+    if (c.touch) {
+      const [bx, by] = pts[pts.length - 1];
+      const [dx, dy] = c.touch;
+      const tip: Pt = [bx + dx * 1.2, by + dy * 1.2];
+      const l: Pt = [bx - dy * 0.8, by + dx * 0.8];
+      const r: Pt = [bx + dy * 0.8, by - dx * 0.8];
+      h += `<path d="M${l[0]} ${l[1]}L${tip[0]} ${tip[1]}L${r[0]} ${r[1]}z" fill="${col_}"/>`;
+    }
     // wide invisible hit area: click a belt to see what runs over it
     h += `<path class="belt-hit" data-conn="${esc(c.key)}" d="${P(pts)}" fill="none" stroke="transparent" stroke-width="2.4"/>`;
     let best = 0;

@@ -5,9 +5,8 @@ import { applyView, fitView, renderMap, zoomAt } from '../render/map';
 import { saveState, state } from '../state/store';
 import { itemName } from '../data/items';
 import { beltFor, col, esc, fmt, unit } from '../util/format';
-import { mirrorSelected, renderInfo, rotateSelected } from './info';
+import { renderInfo, rotateSelected } from './info';
 import { groupTitle } from './labels';
-import { renderOverview } from './sidebar';
 
 type Drag =
   | { mode: 'belt'; key: string; sx: number; sy: number; moved: boolean }
@@ -94,10 +93,8 @@ export function bindMap(): void {
       renderMap();
     }
     if (drag.mode === 'move' && drag.moved) {
-      renderMap();
-      saveState(state);
-      renderInfo();
-      renderOverview();
+      // the automatic entry / exit sides depend on where the blocks are, so recompute
+      recompute();
     }
     drag = null;
     svg.classList.remove('panning');
@@ -131,7 +128,6 @@ export function bindMap(): void {
   document.addEventListener('keydown', (e) => {
     if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName ?? '')) return;
     if (e.key === 'r' || e.key === 'R') rotateSelected();
-    if (e.key === 'm' || e.key === 'M') mirrorSelected();
     if (e.key === 'Escape') {
       ctx.sel = null;
       renderMap();

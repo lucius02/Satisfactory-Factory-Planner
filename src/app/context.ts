@@ -1,6 +1,7 @@
 import type { Group, Model } from '../calc/model';
 import type { LocalGeom, WorldGeom } from '../layout/geometry';
 import type { PowerNet } from '../layout/powerNet';
+import type { Sides } from '../layout/sides';
 
 /** Runtime (non-persisted) state of the app. */
 export const ctx = {
@@ -11,6 +12,8 @@ export const ctx = {
   auto: {} as Record<string, string>,
   /** Layout fits within the floors / floor size. */
   fits: true,
+  /** Automatic entry / exit side per block. */
+  sides: {} as Record<string, Sides>,
   /** Belt connections on screen: what runs over them. */
   conns: {} as Record<string, { item: string; rate: number }>,
   /** Midpoint between the two ends of each belt (reference for its drag offset). */
