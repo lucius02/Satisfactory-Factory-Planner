@@ -39,6 +39,7 @@ export const DEFAULT_STATE: State = {
   produceFuel: true,
   pole: 2,
   showWires: true,
+  daisy: true,
   align: true,
   capRows: false,
   blockOpt: {},

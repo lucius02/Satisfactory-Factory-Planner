@@ -17,6 +17,8 @@ import { bindRecipesModal } from './ui/recipesModal';
 import { bindShareModal } from './ui/shareModal';
 import { bindSidebar } from './ui/sidebar';
 
+const ver = document.getElementById('appVersion');
+if (ver) ver.textContent = `Satisfactory Factory Planner v${__APP_VERSION__} · Satisfactory 1.2`;
 bindPickers();
 bindPower();
 bindSidebar();

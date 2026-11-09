@@ -1,6 +1,6 @@
 # Satisfactory Factory Planner — Satisfactory calculator met plattegrond
 
-Een productiecalculator voor Satisfactory 1.0 die de benodigde machines ook op een
+Een productiecalculator voor Satisfactory 1.2 die de benodigde machines ook op een
 plattegrond op schaal zet (raster van foundations van 8×8 m, optioneel met verdiepingen),
 inclusief splitters/mergers (manifold of balancer), bandtiers en restproductie.
 UI in Nederlands en Engels.
@@ -74,6 +74,8 @@ Lettertypes komen uit `@fontsource/*` (gebundeld), zodat de desktop-apps offline
   staat in `state.otherLayout` (`switchPage()` wisselt ze). `planInput()` in de controller bouwt de solver-invoer per pagina;
   op de stroompagina worden generatoren (`gens`, groep `g:i`, kind `generator`, `gen` = MW) als vaste vraag naar brandstof/water
   meegerekend, met `produceFuel` uit = brandstof als externe aanvoer. `ui/power.ts` = generatorenpaneel.
+- Versie: `__APP_VERSION__` (uit `package.json`, via `define` in `vite.config.ts`) staat onderin de zijbalk.
+- Daisy-chaining (1.2, `state.daisy`, standaard aan): één pole per rij, machines geven stroom door aan de volgende.
 - Power poles: `state.pole` (Mk1–3, 4/7/10 aansluitingen); `geomLocal()` plaatst per rij (en bij miners/extractors) één pole per
   (aansluitingen − 2) machines. `layout/powerNet.ts` verbindt alle lijnen met een minimum spanning tree, kabels max. 100 m
   (tussenpoles), verdiepingshoogte 8 m; een volle pole (`used` = aansluitingen in gebruik) krijgt een hulppole ernaast; getekend in `render/map.ts` (`state.showWires`), resultaat in `ctx.net`.

@@ -197,3 +197,12 @@ describe('straighten', () => {
     expect(out).toHaveLength(3);
   });
 });
+
+describe('daisy-chaining (1.2)', () => {
+  it('uses one pole per row and chains the machines', () => {
+    const g = model.groups.find((x) => x.key === 'm:screw')!;
+    const L = geomLocal(g, { gap: 2, perRow: 0, caps: model.caps, align: true, pole: 1, daisy: true });
+    expect(L.counts.poles).toBe(L.rows);
+    expect(L.parts.filter((p) => p.t === 'wire').length).toBe(g.count + L.rows - 1);
+  });
+});

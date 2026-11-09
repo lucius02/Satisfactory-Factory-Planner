@@ -28,7 +28,7 @@ export function recompute(opts: RecomputeOpts = {}): void {
   ctx.auto = autoRecipes();
   ctx.model = compute({ ...planInput(), rc: effectiveRc() });
   if (ctx.sel && !ctx.model.byKey[ctx.sel]) ctx.sel = null;
-  const geo = { gap: state.gap, perRow: state.perRow, caps: ctx.model.caps, pole: state.pole, align: state.align, capRows: state.capRows };
+  const geo = { gap: state.gap, perRow: state.perRow, caps: ctx.model.caps, pole: state.pole, daisy: state.daisy, align: state.align, capRows: state.capRows };
   const sidesOf = (g: Group) => {
     const o = state.blockOpt[g.key];
     const auto = ctx.sides[g.key];

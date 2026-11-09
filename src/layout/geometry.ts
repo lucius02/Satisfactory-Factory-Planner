@@ -74,6 +74,8 @@ export interface GeoSettings {
   caps: { belt: number; pipe: number };
   /** Power pole tier (1–3). */
   pole?: number;
+  /** Daisy-chaining (1.2): machines pass power on to the next one; one pole per row. */
+  daisy?: boolean;
   /** Center machines on foundations (8 m grid); `gap` is then ignored. */
   align?: boolean;
   /** Too much flow for one belt: true = extra rows, false = parallel belts in the same row. */
@@ -282,7 +284,15 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
       centers.push(m.u + m.w / 2);
     }
     // power poles: each pole uses one connection to the previous and one to the next pole
-    if (powered) {
+    if (powered && s.daisy) {
+      // one pole per row feeds the first machine, each machine passes the power on to the next
+      const pv = mV - 0.5;
+      parts.push({ t: 'pole', u: centers[0], v: pv, used: 1 });
+      parts.push({ t: 'wire', a: [centers[0], pv], b: [centers[0], mV + Math.min(2, b.l / 4)] });
+      for (let i = 1; i < cnt; i++)
+        parts.push({ t: 'wire', a: [centers[i - 1], mV + Math.min(2, b.l / 4)], b: [centers[i], mV + Math.min(2, b.l / 4)] });
+      counts.poles++;
+    } else if (powered) {
       const per = POLE_CONNECTIONS[(s.pole ?? 2) - 1] - 2;
       for (let k = 0; k * per < cnt; k++) {
         const first = k * per;

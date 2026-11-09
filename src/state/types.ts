@@ -104,6 +104,8 @@ export interface State {
   pole: 1 | 2 | 3;
   /** Draw the power lines between production lines on the map. */
   showWires: boolean;
+  /** Satisfactory 1.2: buildings pass power on to each other, so one pole per row is enough. */
+  daisy: boolean;
   /** Too much flow for one belt: extra rows (true) or parallel belts in the same row (false). */
   capRows: boolean;
   /** Per block settings, by group key (per page). */
@@ -114,6 +116,6 @@ export interface State {
 
 /** Settings that are part of the share code / settings panel. */
 export const SETTING_KEYS = [
-  'miner', 'purity', 'clockMode', 'gap', 'perRow', 'floors', 'belt', 'pipe', 'dist', 'balSmooth', 'surplus', 'reuse', 'snap', 'goal', 'layoutMode', 'floorW', 'floorL', 'pole', 'produceFuel', 'showWires', 'align', 'capRows',
+  'miner', 'purity', 'clockMode', 'gap', 'perRow', 'floors', 'belt', 'pipe', 'dist', 'balSmooth', 'surplus', 'reuse', 'snap', 'goal', 'layoutMode', 'floorW', 'floorL', 'pole', 'produceFuel', 'showWires', 'daisy', 'align', 'capRows',
 ] as const;
 export type SettingKey = (typeof SETTING_KEYS)[number];

@@ -52,7 +52,7 @@ const nl = {
   sinkPts: 'Sinkpunten',
   pointsMin: 'punten/min',
   dataNote:
-    'Recepten uit Satisfactory 1.0 (satisfactory.wiki.gg); kies alternates via de knop Recepten. Gebouwmaten zijn bij benadering; vermogen van Particle Accelerator, Converter en Quantum Encoder is een gemiddelde.',
+    'Recepten uit Satisfactory 1.2 (satisfactory.wiki.gg); kies alternates via de knop Recepten. Gebouwmaten zijn bij benadering; vermogen van Particle Accelerator, Converter en Quantum Encoder is een gemiddelde.',
   tabMap: 'Plattegrond',
   tabTable: 'Productietabel',
   auto: 'Auto-indeling',
@@ -171,6 +171,7 @@ const nl = {
   powerLines: 'Power lines',
   wireLen: '± {0} m tussen lijnen',
   showWires: 'Stroomkabels tonen',
+  daisy: 'Gebouwen doorverbinden (daisy-chaining, 1.2): één pole per rij',
   blockH: 'Instellingen van dit blok',
   inSide: 'Invoer komt binnen',
   sideAuto: 'Automatisch',
@@ -247,7 +248,7 @@ const en: Record<TextKey, string> = {
   sinkPts: 'Sink points',
   pointsMin: 'points/min',
   dataNote:
-    'Satisfactory 1.0 recipes (satisfactory.wiki.gg); pick alternates with the Recipes button. Building sizes are approximate; Particle Accelerator, Converter and Quantum Encoder power is an average.',
+    'Satisfactory 1.2 recipes (satisfactory.wiki.gg); pick alternates with the Recipes button. Building sizes are approximate; Particle Accelerator, Converter and Quantum Encoder power is an average.',
   tabMap: 'Floor plan',
   tabTable: 'Production table',
   auto: 'Auto layout',
@@ -366,6 +367,7 @@ const en: Record<TextKey, string> = {
   powerLines: 'Power lines',
   wireLen: '± {0} m between lines',
   showWires: 'Show power lines',
+  daisy: 'Chain buildings (daisy-chaining, 1.2): one pole per row',
   blockH: 'Settings of this block',
   inSide: 'Inputs enter',
   sideAuto: 'Automatic',
