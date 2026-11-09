@@ -89,6 +89,8 @@ export interface IssueLinks {
   screenshotUrl?: string;
   /** URL of the uploaded plan file, when too big for the issue body. */
   planUrl?: string;
+  /** Attachments that could not be stored (shown in the issue). */
+  problems?: string[];
 }
 
 /** Build the GitHub issue (title, body, labels). */
@@ -109,6 +111,7 @@ export function buildIssue(r: FeedbackReport, links: IssueLinks = {}): { title: 
     else if (r.plan.length <= LIMITS.planInline)
       lines.push('<details><summary>Fabrieksplan (deelcode) — plak in "Opslaan / delen" → Laden</summary>', '', '```json', fence(r.plan), '```', '</details>', '');
   }
+  if (links.problems?.length) lines.push(`> ⚠️ Bijlage niet opgeslagen: ${links.problems.map(safe).join('; ')}`, '');
   lines.push('---', '_Verstuurd vanuit Satisfactory Factory Planner._');
   return {
     title: `[${KIND_LABEL[r.kind]}] ${r.title}`.slice(0, 200),

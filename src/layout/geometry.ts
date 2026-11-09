@@ -222,7 +222,11 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
   const uMid = pr <= 1 ? slotC(0) : midMachine ? slotC((pr - 1) / 2) : (slotC(hL - 1) + slotC(hL)) / 2;
   const sIn = Math.min(1.6, (b.w - 1) / Math.max(1, nIn));
   const sOut = Math.min(1.6, (b.w - 1) / Math.max(1, nOut));
-  const inOff = (k: number) => (k - (nIn - 1) / 2) * sIn;
+  // input belts sit side by side over a machine; order them by their chosen side (left … right)
+  const sideRank: Record<Side, number> = { left: 0, center: 1, right: 2 };
+  const inOrder = g.inputs.map((_, k) => k).sort((a, b) => sideRank[inSideOf(a)] - sideRank[inSideOf(b)] || a - b);
+  const inSlot = g.inputs.map((_, k) => inOrder.indexOf(k));
+  const inOff = (k: number) => (inSlot[k] - (nIn - 1) / 2) * sIn;
   const outOff = (j: number) => (j - (nOut - 1) / 2) * sOut;
   /** Position of the trunk / entry belt for a side. */
   const portU = (side: Side, k: number, off: number, isIn: boolean) =>

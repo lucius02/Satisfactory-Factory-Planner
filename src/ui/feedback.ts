@@ -43,7 +43,7 @@ function collect(): FeedbackReport {
     contact: $<HTMLInputElement>('#fbContact').value || undefined,
     website: $<HTMLInputElement>('#fbWebsite').value,
     plan: on('plan') ? exportCode() : undefined,
-    system: on('system') ? systemInfo() : undefined,
+    system: on('system') ? { ...systemInfo(), screenshot: shot ? (on('screenshot') ? 'sent' : 'not included') : 'could not be made' } : undefined,
     errors: on('errors') ? recentErrors() : undefined,
     screenshot: on('screenshot') && shot ? shot : undefined,
   };
@@ -78,9 +78,10 @@ async function send(): Promise<void> {
   setMsg(t('fbSending'), 'info');
   try {
     const res = await fetch(ENDPOINT, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(report) });
-    const data = (await res.json().catch(() => ({}))) as { url?: string; number?: number; error?: string };
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
     if (!res.ok) throw new Error(res.status === 429 ? t('fbRate') : data.error || `HTTP ${res.status}`);
-    setMsg(t('fbThanks', `<b>#${data.number}</b>`), 'ok');
+    // no issue number for the user, just a thank-you that fits the kind of report
+    setMsg(esc(t(report.kind === 'idea' ? 'fbThanksIdea' : report.kind === 'question' ? 'fbThanksQuestion' : 'fbThanksBug')), 'ok');
     $<HTMLInputElement>('#fbTitle').value = '';
     $<HTMLTextAreaElement>('#fbDesc').value = '';
   } catch (err) {

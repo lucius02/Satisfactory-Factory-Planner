@@ -258,3 +258,17 @@ describe('middle feed with an odd number of machines', () => {
     expect(L.inLanes[0].pu).toBeCloseTo(midX);
   });
 });
+
+describe('input order follows the chosen side', () => {
+  it('one assembler: rods right, screws left puts the rod belt on the right', () => {
+    const rotor = compute({
+      targets: [{ item: 'rotor', rate: 4 }], external: [], rc: {}, miner: 2, purity: 1, clockMode: 'even', belt: 3, pipe: 1,
+      reuse: true, surplus: 'output', dist: 'manifold', distOv: {}, balSmooth: false,
+    }).byKey['m:rotor'];
+    expect(rotor.count).toBe(1);
+    const L = geomLocal(rotor, { gap: 2, perRow: 8, caps: { belt: 270, pipe: 300 }, align: true, inSides: { 'iron-rod': 'right', screw: 'left' } });
+    const rod = L.inLanes.find((l) => l.item === 'iron-rod')!;
+    const screw = L.inLanes.find((l) => l.item === 'screw')!;
+    expect(rod.pu).toBeGreaterThan(screw.pu);
+  });
+});

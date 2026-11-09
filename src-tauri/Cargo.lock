@@ -758,7 +758,7 @@ dependencies = [
 
 [[package]]
 name = "fabrieksplanner"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "log",
  "serde",

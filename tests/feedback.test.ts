@@ -67,4 +67,34 @@ describe('worker', () => {
     const limited = await worker.fetch(post(good), { ...env, LIMITER: { limit: async () => ({ success: false }) } });
     expect(limited.status).toBe(429);
   });
+
+  it('stores the screenshot on the default branch when the repo is still empty', async () => {
+    const calls: { url: string; method?: string; body?: string }[] = [];
+    vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
+      calls.push({ url, method: init?.method, body: init?.body as string });
+      if (url.endsWith('/git/ref/heads/feedback-assets') || url.endsWith('/git/ref/heads/main')) return new Response('{}', { status: 404 });
+      if (url.endsWith('/repos/o/r')) return new Response(JSON.stringify({ default_branch: 'main' }));
+      if (url.includes('/contents/')) return new Response(JSON.stringify({ commit: { sha: 'abc' } }), { status: 201 });
+      return new Response(JSON.stringify({ number: 1, html_url: 'x' }), { status: 201 });
+    });
+    const res = await worker.fetch(post({ ...good, screenshot: 'data:image/png;base64,iVBORw0KGgo=' }), env);
+    expect(res.status).toBe(201);
+    const put = calls.find((c) => c.url.includes('/contents/'))!;
+    expect(JSON.parse(put.body!).branch).toBeUndefined();
+    const issue = JSON.parse(calls.at(-1)!.body!);
+    expect(issue.body).toContain('/blob/abc/feedback/');
+  });
+
+  it('mentions a failed upload in the issue instead of dropping it silently', async () => {
+    const calls: { url: string; body?: string }[] = [];
+    vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
+      calls.push({ url, body: init?.body as string });
+      if (url.endsWith('/git/ref/heads/feedback-assets')) return new Response('{}');
+      if (url.includes('/contents/')) return new Response('{}', { status: 403 });
+      return new Response(JSON.stringify({ number: 2, html_url: 'x' }), { status: 201 });
+    });
+    const res = await worker.fetch(post({ ...good, screenshot: 'data:image/png;base64,iVBORw0KGgo=' }), env);
+    expect(res.status).toBe(201);
+    expect(JSON.parse(calls.at(-1)!.body!).body).toContain('screenshot: upload 403');
+  });
 });

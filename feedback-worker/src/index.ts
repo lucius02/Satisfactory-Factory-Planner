@@ -47,28 +47,35 @@ async function gh(env: Env, path: string, init: RequestInit = {}): Promise<Respo
   });
 }
 
-/** Make sure the asset branch exists (branched from the default branch). */
-async function ensureBranch(env: Env): Promise<void> {
-  const r = await gh(env, `/repos/${env.GITHUB_REPO}/git/ref/heads/${env.ASSET_BRANCH}`);
-  if (r.ok) return;
-  const repo = (await (await gh(env, `/repos/${env.GITHUB_REPO}`)).json()) as { default_branch: string };
-  const base = (await (await gh(env, `/repos/${env.GITHUB_REPO}/git/ref/heads/${repo.default_branch}`)).json()) as {
-    object: { sha: string };
-  };
-  await gh(env, `/repos/${env.GITHUB_REPO}/git/refs`, {
+/**
+ * Branch to store attachments in: the asset branch (created from the default branch when missing).
+ * An empty repo has no branch to start from; then the file goes to the default branch (first commit).
+ */
+async function assetBranch(env: Env): Promise<string | null> {
+  if ((await gh(env, `/repos/${env.GITHUB_REPO}/git/ref/heads/${env.ASSET_BRANCH}`)).ok) return env.ASSET_BRANCH;
+  const repoRes = await gh(env, `/repos/${env.GITHUB_REPO}`);
+  if (!repoRes.ok) throw new Error(`repo ${repoRes.status}`);
+  const repo = (await repoRes.json()) as { default_branch: string };
+  const baseRes = await gh(env, `/repos/${env.GITHUB_REPO}/git/ref/heads/${repo.default_branch}`);
+  if (!baseRes.ok) return null; // empty repo
+  const base = (await baseRes.json()) as { object: { sha: string } };
+  const made = await gh(env, `/repos/${env.GITHUB_REPO}/git/refs`, {
     method: 'POST',
     body: JSON.stringify({ ref: `refs/heads/${env.ASSET_BRANCH}`, sha: base.object.sha }),
   });
+  if (!made.ok && made.status !== 422) throw new Error(`branch ${made.status}`); // 422 = already exists
+  return env.ASSET_BRANCH;
 }
 
-/** Store a file in the asset branch; returns a URL that renders for people with access to the repo. */
-async function upload(env: Env, path: string, base64: string, message: string): Promise<string | undefined> {
+/** Store a file; returns a URL that renders for people with access to the repo. Throws with the reason. */
+async function upload(env: Env, branch: string | null, path: string, base64: string, message: string): Promise<string> {
   const r = await gh(env, `/repos/${env.GITHUB_REPO}/contents/${path}`, {
     method: 'PUT',
-    body: JSON.stringify({ message, content: base64, branch: env.ASSET_BRANCH }),
+    body: JSON.stringify(branch ? { message, content: base64, branch } : { message, content: base64 }),
   });
-  if (!r.ok) return undefined;
-  return `https://github.com/${env.GITHUB_REPO}/blob/${env.ASSET_BRANCH}/${path}?raw=true`;
+  if (!r.ok) throw new Error(`upload ${r.status}`);
+  const ref = branch ?? ((await r.json()) as { commit?: { sha?: string } }).commit?.sha ?? 'HEAD';
+  return `https://github.com/${env.GITHUB_REPO}/blob/${ref}/${path}?raw=true`;
 }
 
 const toBase64 = (s: string) => {
@@ -100,14 +107,32 @@ export default {
 
     const id = `${new Date().toISOString().replace(/[:.]/g, '-')}-${crypto.randomUUID().slice(0, 8)}`;
     const links: IssueLinks = {};
-    try {
-      if (r.screenshot || (r.plan && r.plan.length > 30_000)) await ensureBranch(env);
+    // attachments are best effort: the issue is always created, with a note when an upload failed
+    const problems: string[] = [];
+    const bigPlan = !!r.plan && r.plan.length > 30_000;
+    if (r.screenshot || bigPlan) {
+      let branch: string | null = null;
+      try {
+        branch = await assetBranch(env);
+      } catch (e) {
+        problems.push(`branch: ${e instanceof Error ? e.message : e}`);
+      }
       if (r.screenshot)
-        links.screenshotUrl = await upload(env, `feedback/${id}.png`, r.screenshot.split(',')[1], `feedback ${id}: screenshot`);
-      if (r.plan && r.plan.length > 30_000)
-        links.planUrl = await upload(env, `feedback/${id}.json`, toBase64(r.plan), `feedback ${id}: plan`);
-    } catch {
-      /* attachments are best effort; the issue still gets created */
+        try {
+          links.screenshotUrl = await upload(env, branch, `feedback/${id}.png`, r.screenshot.split(',')[1], `feedback ${id}: screenshot`);
+        } catch (e) {
+          problems.push(`screenshot: ${e instanceof Error ? e.message : e}`);
+        }
+      if (bigPlan)
+        try {
+          links.planUrl = await upload(env, branch, `feedback/${id}.json`, toBase64(r.plan!), `feedback ${id}: plan`);
+        } catch (e) {
+          problems.push(`plan: ${e instanceof Error ? e.message : e}`);
+        }
+    }
+    if (problems.length) {
+      links.problems = problems;
+      console.warn('attachment problems', problems);
     }
 
     const issue = buildIssue(r, links);
