@@ -4,3 +4,7 @@ dist
 .vite
 release
 src-tauri/target
+.env
+.env.local
+feedback-worker/node_modules
+feedback-worker/.wrangler

@@ -27,6 +27,10 @@ Lettertypes komen uit `@fontsource/*` (gebundeld), zodat de desktop-apps offline
   `releases/latest/download/latest.json`, downloadt stil en installeert bij afsluiten (of via "Nu herstarten"). Updates zijn gesigneerd: publieke sleutel staat in
   `src-tauri/tauri.conf.json`, de private sleutel staat lokaal in `~/.tauri/fabrieksplanner.key` (nooit committen) en
   als GitHub-secret `TAURI_SIGNING_PRIVATE_KEY` (+ `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, leeg). Sleutel kwijt = geen updates meer.
+- Feedback: knop "Feedback" → `src/ui/feedback.ts` (formulier) + `src/feedback/collect.ts` (foutenbuffer, systeeminfo,
+  PNG-screenshot van de kaart, deelcode). Versturen naar `VITE_FEEDBACK_URL` (`.env` lokaal, repo-variabele `FEEDBACK_URL`
+  in de release-workflow); zonder URL wordt de melding als Markdown gekopieerd. `feedback-worker/` = Cloudflare Worker
+  die het GitHub-issue maakt (token als Worker-secret, rate limit, bijlagen in branch `feedback-assets`); zie de README daar.
 - Electron heeft geen auto-updater en wordt niet in CI gebouwd; lokaal via `npm run electron:build`.
 
 `legacy/index.html` is de oude versie in één bestand (alleen ter referentie).

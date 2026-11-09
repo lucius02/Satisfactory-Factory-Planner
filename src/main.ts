@@ -11,6 +11,8 @@ import { refreshAll } from './app/controller';
 import { startAutoUpdate } from './app/updater';
 import { bindInfo } from './ui/info';
 import { bindMap } from './ui/mapEvents';
+import { startErrorLog } from './feedback/collect';
+import { bindFeedback } from './ui/feedback';
 import { bindPickers } from './ui/picker';
 import { bindPower } from './ui/power';
 import { bindRecipesModal } from './ui/recipesModal';
@@ -19,6 +21,8 @@ import { bindSidebar } from './ui/sidebar';
 
 const ver = document.getElementById('appVersion');
 if (ver) ver.textContent = `Satisfactory Factory Planner v${__APP_VERSION__} · Satisfactory 1.2`;
+startErrorLog();
+bindFeedback();
 bindPickers();
 bindPower();
 bindSidebar();

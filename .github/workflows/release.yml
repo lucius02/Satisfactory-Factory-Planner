@@ -49,6 +49,8 @@ jobs:
       - run: npm ci
       - uses: tauri-apps/tauri-action@v0
         env:
+          # feedback worker URL (repository variable, see feedback-worker/README.md)
+          VITE_FEEDBACK_URL: ${{ vars.FEEDBACK_URL }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Tekent de updatebestanden; de app installeert alleen updates met een geldige handtekening.
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}

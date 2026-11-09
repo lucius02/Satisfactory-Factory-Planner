@@ -1,0 +1,16 @@
+name = "sfp-feedback"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+
+[vars]
+# Repo that receives the issues ("owner/name"). Tip: use a private repo, see README.
+GITHUB_REPO = "lucius02/Satisfactory-Factory-Planner-feedback"
+ASSET_BRANCH = "feedback-assets"
+# Origins of the app: Tauri (Windows / Linux / macOS), the Vite dev server
+ALLOWED_ORIGINS = "http://tauri.localhost,https://tauri.localhost,tauri://localhost,http://localhost:5173"
+
+# Max. 5 reports per minute per IP address
+[[ratelimits]]
+name = "LIMITER"
+namespace_id = "1001"
+simple = { limit = 5, period = 60 }
