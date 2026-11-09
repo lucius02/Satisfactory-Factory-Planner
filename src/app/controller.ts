@@ -5,7 +5,9 @@ import { GENERATORS, genFuel } from '../data/generators';
 import { applyStaticTexts } from '../i18n';
 import { autoLayout } from '../layout/autoLayout';
 import { geomLocal } from '../layout/geometry';
-import { autoSides } from '../layout/sides';
+import type { Side } from '../layout/geometry';
+import { autoSides, consumersOf } from '../layout/sides';
+import type { Group } from '../calc/model';
 import { fitView, renderMap } from '../render/map';
 import { saveState, state } from '../state/store';
 import { renderInfo } from '../ui/info';
@@ -27,12 +29,19 @@ export function recompute(opts: RecomputeOpts = {}): void {
   ctx.model = compute({ ...planInput(), rc: effectiveRc() });
   if (ctx.sel && !ctx.model.byKey[ctx.sel]) ctx.sel = null;
   const geo = { gap: state.gap, perRow: state.perRow, caps: ctx.model.caps, pole: state.pole, align: state.align, capRows: state.capRows };
-  const sidesOf = (key: string) => {
-    const o = state.blockOpt[key];
-    return { inSide: o?.side ?? ctx.sides[key]?.in, outSide: o?.outSide ?? ctx.sides[key]?.out };
+  const sidesOf = (g: Group) => {
+    const o = state.blockOpt[g.key];
+    const auto = ctx.sides[g.key];
+    const inSides: Record<string, Side> = {};
+    for (const i of g.inputs) {
+      const sd = o?.inSides?.[i.item] ?? o?.side ?? auto?.in[i.item];
+      if (sd) inSides[i.item] = sd;
+    }
+    return { inSides, outSide: o?.outSide ?? auto?.out, outSplit: o?.outSplit ? consumersOf(ctx.model, g) : undefined };
   };
+  const build = (g: Group) => geomLocal(g, { ...geo, opt: state.blockOpt[g.key], ...sidesOf(g) });
   ctx.local = {};
-  for (const g of ctx.model.groups) ctx.local[g.key] = geomLocal(g, { ...geo, opt: state.blockOpt[g.key], ...sidesOf(g.key) });
+  for (const g of ctx.model.groups) ctx.local[g.key] = build(g);
   ctx.fits = autoLayout(
     ctx.model,
     state.pos,
@@ -42,12 +51,7 @@ export function recompute(opts: RecomputeOpts = {}): void {
   );
   // entry / exit side from the positions of suppliers and consumers (unless set in the block)
   ctx.sides = autoSides(ctx.model, state.pos, ctx.local);
-  for (const g of ctx.model.groups) {
-    const s = sidesOf(g.key);
-    const L = ctx.local[g.key];
-    if (L && !L.src && (L.inSide !== s.inSide || L.outSide !== s.outSide))
-      ctx.local[g.key] = geomLocal(g, { ...geo, opt: state.blockOpt[g.key], ...s });
-  }
+  for (const g of ctx.model.groups) if (!ctx.local[g.key]?.src) ctx.local[g.key] = build(g);
   state.cur = Math.min(state.cur || 0, (state.floors || 1) - 1);
   renderAll();
   if (opts.fit) fitView();

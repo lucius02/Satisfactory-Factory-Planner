@@ -36,6 +36,8 @@ export interface Lane {
   fluid: boolean;
   /** Parallel belts / pipes needed for the total flow. */
   belts: number;
+  /** Split output: the consumer (group key, or '*target' for the end product) this lane goes to. */
+  to?: string;
 }
 
 export interface LogiCount {
@@ -59,9 +61,11 @@ export interface LocalGeom {
   parts: Part[];
   counts: LogiCount;
   rows: number;
-  /** Sides where the belts enter / leave (resolved). */
-  inSide?: Side;
+  /** Sides where the belts enter / leave (resolved), per input item. */
+  inSides?: Record<ItemId, Side>;
   outSide?: Side;
+  /** Main output split per consumer. */
+  split?: boolean;
 }
 
 export interface GeoSettings {
@@ -76,9 +80,13 @@ export interface GeoSettings {
   capRows?: boolean;
   /** Settings of this block. */
   opt?: BlockOpt;
-  /** Resolved entry / exit side (block setting or automatic). */
+  /** Resolved entry side per input item, and exit side (block setting or automatic). */
+  inSides?: Record<ItemId, Side>;
+  /** Default entry side for inputs without their own. */
   inSide?: Side;
   outSide?: Side;
+  /** Split the main output over these consumers (one output belt each) instead of merging it. */
+  outSplit?: { key: string; rate: number }[];
 }
 
 export const snapUp = (x: number): number => Math.ceil(x / 8 - 1e-9) * 8;
@@ -135,28 +143,40 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
     Math.max(1, Math.ceil((perMachine(f.rate) * cnt) / capOf(f.item) - 1e-6));
 
   // where the belts enter / leave: left, middle or right (a balancer is always fed from the side)
-  const inSide: Side = balanced && s.inSide === 'center' ? 'left' : s.inSide ?? 'left';
+  // a balancer is fed from straight above the middle of its row (otherwise the belts cross);
+  // with several rows its trunk runs on the left or right
+  const inSideOf = (k: number): Side => {
+    const sd = s.inSides?.[g.inputs[k].item] ?? s.inSide ?? 'left';
+    if (balanced && !isFluid(g.inputs[k].item)) return nRows === 1 ? 'center' : sd === 'center' ? 'left' : sd;
+    return sd;
+  };
   const outSide: Side = s.outSide ?? 'right';
   const hL = Math.ceil(pr / 2);
   /** Machines fed by one belt group: the half when fed from the middle, else the whole row. */
   const groupCnt = (side: Side) => (side === 'center' && pr > 1 ? hL : pr);
-  const inBelts = (f: { item: ItemId; rate: number }) => beltsFor(f, groupCnt(inSide));
+  const inBeltsK = (k: number) => beltsFor(g.inputs[k], groupCnt(inSideOf(k)));
   const outBelts = (f: { item: ItemId; rate: number }) => beltsFor(f, groupCnt(outSide));
   // one row with one belt per flow: the belts enter right above the machines and leave right under
   // them, so the block needs no side strips (only the machines' own foundations)
-  const needsTrunk = nRows > 1 || balanced || g.inputs.some((f) => inBelts(f) > 1) || g.outputs.some((f) => outBelts(f) > 1);
+  const needsTrunk = nRows > 1 || g.inputs.some((_, k) => inBeltsK(k) > 1) || g.outputs.some((f) => outBelts(f) > 1);
+  // split output: one belt per consumer (one row only); machines divided by the consumers' demand
+  const split =
+    s.outSplit && s.outSplit.length > 1 && nRows === 1 && pr >= s.outSplit.length && g.outputs.length > 0 ? s.outSplit : null;
+  const splitCnt = split ? allocate(pr, split.map((x) => x.rate)) : [];
 
   const powered = g.kind === 'machine' || g.kind === 'generator' || g.kind === 'sink';
   const balLevels = balanced ? balancerCount(pr).levels : 0;
   const LANE_STEP = 2.2;
-  const inBand = g.inputs.map((f) =>
+  const inBand = g.inputs.map((f, k) =>
     isFluid(f.item)
-      ? BAND_FLUID + (inBelts(f) - 1) * LANE_STEP
+      ? BAND_FLUID + (inBeltsK(k) - 1) * LANE_STEP
       : balanced
         ? Math.max(1, balLevels) * LEVEL + 1
-        : BAND_SOLID + (inBelts(f) - 1) * LANE_STEP,
+        : BAND_SOLID + (inBeltsK(k) - 1) * LANE_STEP,
   );
-  const outBand = g.outputs.map((f) => (isFluid(f.item) ? BAND_FLUID : BAND_SOLID) + (outBelts(f) - 1) * LANE_STEP);
+  const outBand = g.outputs.map(
+    (f, j) => (isFluid(f.item) ? BAND_FLUID : BAND_SOLID) + (split && j === 0 ? LANE_STEP : (outBelts(f) - 1) * LANE_STEP),
+  );
   const sumIn = inBand.reduce((a, x) => a + x, 0);
   const sumOut = outBand.reduce((a, x) => a + x, 0);
 
@@ -169,7 +189,8 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
   const pitch = align ? cellW + extra * 8 : b.w + s.gap + extra;
   const mOffU = (cellW - b.w) / 2;
   // several rows fed from the middle: a corridor of one foundation in the middle carries the trunk
-  const corridor = nRows > 1 && pr > 1 && (inSide === 'center' || outSide === 'center') ? (align ? 8 : 4) : 0;
+  const anyCenter = g.inputs.some((_, k) => inSideOf(k) === 'center') || outSide === 'center';
+  const corridor = nRows > 1 && pr > 1 && anyCenter ? (align ? 8 : 4) : 0;
   const innerU = (pr - 1) * pitch + cellW + corridor;
   // side strips for trunk belts; the same on both sides so the width does not depend on the chosen sides
   const strip = needsTrunk ? 2 + Math.max(nIn, nOut) * LANE_SIDE : 0;
@@ -195,11 +216,27 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
         : (side === 'left' ? slotC(0) : slotC(pr - 1)) + off + (isIn ? 0 : 0);
 
   const inLanes: Lane[] = g.inputs.map((f, k) => ({
-    item: f.item, pu: portU(inSide, k, inOff(k), true), fluid: isFluid(f.item), belts: lanesFor(f.rate, f.item, s),
+    item: f.item, pu: portU(inSideOf(k), k, inOff(k), true), fluid: isFluid(f.item), belts: lanesFor(f.rate, f.item, s),
   }));
-  const outLanes: Lane[] = g.outputs.map((f, j) => ({
-    item: f.item, pu: portU(outSide, j, outOff(j), false), fluid: isFluid(f.item), belts: lanesFor(f.rate, f.item, s),
-  }));
+  /** Lane indices per output (a split main output has one lane per consumer). */
+  const laneOf: number[][] = [];
+  const outLanes: Lane[] = [];
+  g.outputs.forEach((f, j) => {
+    if (split && j === 0) {
+      let start = 0;
+      laneOf.push(
+        split.map((c, ri) => {
+          const last = start + splitCnt[ri] - 1;
+          start += splitCnt[ri];
+          outLanes.push({ item: f.item, pu: slotC(last) + outOff(0), fluid: isFluid(f.item), belts: 1, to: c.key });
+          return outLanes.length - 1;
+        }),
+      );
+    } else {
+      outLanes.push({ item: f.item, pu: portU(outSide, j, outOff(j), false), fluid: isFluid(f.item), belts: lanesFor(f.rate, f.item, s) });
+      laneOf.push([outLanes.length - 1]);
+    }
+  });
 
   const parts: Part[] = [];
   const machines: Machine[] = [];
@@ -228,7 +265,7 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
 
   /** Per trunk: v → number of belts that branch off there. */
   const tapsIn: Map<number, number>[] = g.inputs.map(() => new Map());
-  const tapsOut: Map<number, number>[] = g.outputs.map(() => new Map());
+  const tapsOut: Map<number, number>[] = outLanes.map(() => new Map());
   const tap = (m: Map<number, number>, v: number) => m.set(v, (m.get(v) ?? 0) + 1);
   const rowGap = 3;
   const rowH = sumIn + 0.5 + b.l + 0.5 + sumOut;
@@ -268,7 +305,7 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
         tap(tapsIn[k], rootV);
         drawBalancer(balancerTree(cnt), xs, rootV, mV, uEnd + 0.8 + k * 0.6, lane, belt, node, parts);
       } else {
-        for (const grp of groupsFrom(inSide, xs))
+        for (const grp of groupsFrom(inSideOf(k), xs))
           chunks(grp, beltsFor(f, grp.length)).forEach((cx, j) => {
             const v = bandTop + (lane.fluid ? BAND_FLUID : BAND_SOLID) / 2 + j * LANE_STEP;
             tap(tapsIn[k], v);
@@ -284,13 +321,46 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
     // ---- outputs (merger manifold towards the port)
     let ob = mV + b.l + 0.5;
     g.outputs.forEach((f, j) => {
-      const lane = outLanes[j];
+      const lane = outLanes[laneOf[j][0]];
       const w = lane.fluid ? 0.6 : 0.55;
       const xs = centers.map((c) => c + outOff(j));
+      if (split && j === 0) {
+        // one merger line per consumer; what one line has too much goes to another via splitter -> merger
+        const v = ob + (lane.fluid ? BAND_FLUID : BAND_SOLID) / 2;
+        const vT = v + LANE_STEP;
+        let start = 0;
+        const surplus = split.map((c, ri) => {
+          const cx = xs.slice(start, start + splitCnt[ri]);
+          start += splitCnt[ri];
+          tap(tapsOut[laneOf[0][ri]], v);
+          cx.forEach((x, i) => {
+            belt([[x, mV + b.l], [x, v]], f.item, 0.32);
+            if (i < cx.length - 1) node('merge', x, v, f.item);
+          });
+          if (cx.length > 1) belt([[cx[0], v], [cx[cx.length - 1], v]], f.item, w);
+          return (f.rate * splitCnt[ri]) / pr - c.rate;
+        });
+        const give = surplus.map((x, i) => ({ i, x })).filter((e) => e.x > 1e-6);
+        const need = surplus.map((x, i) => ({ i, x: -x })).filter((e) => e.x > 1e-6);
+        for (const gv of give)
+          for (const nd of need) {
+            const amt = Math.min(gv.x, nd.x);
+            if (amt <= 1e-6) continue;
+            gv.x -= amt;
+            nd.x -= amt;
+            const a = outLanes[laneOf[0][gv.i]].pu;
+            const c = outLanes[laneOf[0][nd.i]].pu;
+            node('split', a, vT, f.item);
+            node('merge', c, vT, f.item);
+            belt([[a, vT], [c, vT]], f.item, 0.4);
+          }
+        ob += outBand[j];
+        return;
+      }
       for (const grp of groupsFrom(outSide, xs))
         chunks(grp, beltsFor(f, grp.length)).forEach((cx, q) => {
           const v = ob + (lane.fluid ? BAND_FLUID : BAND_SOLID) / 2 + q * LANE_STEP;
-          tap(tapsOut[j], v);
+          tap(tapsOut[laneOf[j][0]], v);
           cx.forEach((x, i) => {
             belt([[x, mV + b.l], [x, v]], f.item, 0.32);
             if (i < cx.length - 1) node('merge', x, v, f.item);
@@ -326,7 +396,9 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
 
   if (counts.poles) counts.wires = machines.length + counts.poles - 1;
   chainPoles(parts);
-  return { U, V, src: false, bld: b, machines, inLanes, outLanes, parts, counts, rows: nRows, inSide, outSide };
+  const inSides: Record<ItemId, Side> = {};
+  g.inputs.forEach((f, k) => (inSides[f.item] = inSideOf(k)));
+  return { U, V, src: false, bld: b, machines, inLanes, outLanes, parts, counts, rows: nRows, inSides, outSide, split: !!split };
 }
 
 /** The poles of a group are linked in a chain: add those links to `used`. */
@@ -396,6 +468,20 @@ function drawBalancer(
   draw(root, rootV, null, rootV, null, root.x);
 }
 
+/** Divide `n` machines over consumers by demand (largest remainder, at least one each). */
+export function allocate(n: number, rates: number[]): number[] {
+  const tot = rates.reduce((a, b) => a + b, 0) || 1;
+  const raw = rates.map((r) => (r / tot) * n);
+  const out = raw.map((x) => Math.max(1, Math.floor(x)));
+  while (out.reduce((a, b) => a + b, 0) > n) out[out.indexOf(Math.max(...out))]--;
+  while (out.reduce((a, b) => a + b, 0) < n) {
+    let best = 0;
+    for (let i = 1; i < out.length; i++) if (raw[i] - out[i] > raw[best] - out[best]) best = i;
+    out[best]++;
+  }
+  return out;
+}
+
 function lanesFor(rate: number, item: ItemId, s: GeoSettings): number {
   const cap = isFluid(item) ? s.caps.pipe : s.caps.belt;
   return Math.max(1, Math.ceil(rate / cap - 1e-6));
@@ -414,6 +500,8 @@ export interface WorldGeom {
   dir: Pt;
   outs: Pt[];
   outIdx: Record<ItemId, number>;
+  /** Exit point for an item (to a given consumer when the output is split). */
+  outFor: (item: ItemId, to?: string) => Pt;
   ins: Pt[];
 }
 
@@ -422,14 +510,20 @@ export function worldGeom(L: LocalGeom, p: GroupPos): WorldGeom {
   const rot = !!p.rot;
   const T = (u: number, v: number): Pt => (rot ? [p.x + v, p.y + u] : [p.x + u, p.y + v]);
   const outIdx: Record<ItemId, number> = {};
-  L.outLanes.forEach((l, j) => (outIdx[l.item] = j));
+  L.outLanes.forEach((l, j) => (outIdx[l.item] ??= j));
+  const outs = L.outLanes.map((l) => T(l.pu, L.V));
+  const outFor = (item: ItemId, to?: string): Pt => {
+    const j = L.outLanes.findIndex((l) => l.item === item && l.to === to);
+    return outs[j >= 0 ? j : outIdx[item]];
+  };
   return {
     L, p, rot, T, x: p.x, y: p.y, f: p.f || 0,
     W: rot ? L.V : L.U,
     H: rot ? L.U : L.V,
     dir: rot ? [1, 0] : [0, 1],
-    outs: L.outLanes.map((l) => T(l.pu, L.V)),
+    outs,
     outIdx,
+    outFor,
     ins: L.inLanes.map((l) => T(l.pu, 0)),
   };
 }

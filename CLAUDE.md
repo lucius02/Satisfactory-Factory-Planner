@@ -51,8 +51,10 @@ Lettertypes komen uit `@fontsource/*` (gebundeld), zodat de desktop-apps offline
     (`state.unlocked`; standaardrecepten altijd beschikbaar), doel `raw`/`power`/`machines`. Handmatige keuzes (`state.rc`) blijven vast.
     Effectieve recepten = `{ ...ctx.auto, ...state.rc }` (`effectiveRc()` in de controller).
 - `layout/geometry.ts` — `geomLocal()` legt één groep neer: invoer boven, uitvoer onder, elk links/midden/rechts
-  (`inSide`/`outSide`; blokinstelling `side`/`outSide`, anders automatisch via `layout/sides.ts` uit de posities van
-  leveranciers/afnemers, opgeslagen in `ctx.sides`; breedte hangt niet af van de kant). Meerdere rijen
+  (`inSides` per invoeritem / `outSide`; blokinstelling `inSides`/`side`/`outSide`, anders automatisch via `layout/sides.ts`
+  uit de posities van leveranciers/afnemers per item, in `ctx.sides`; breedte hangt niet af van de kant). Een balancer in één rij
+  wordt altijd recht boven het midden gevoed. `outSplit` (blokinstelling): hoofduitvoer per afnemer een eigen band
+  (machines verdeeld met `allocate()`, verschil via splitter→merger); `WorldGeom.outFor(item, afnemer)` geeft het uitgangspunt. Meerdere rijen
   (max. per rij door instelling én bandcapaciteit), manifold (splitters in serie) of balancerboom, mergers aan de uitvoerkant.
   Eén rij met één band per stroom: invoer direct boven de eerste machine, uitvoer onder de laatste, geen zijstroken;
   blokgrootte = machines + splitter/merger-rijen (1 Constructor = 1×3 foundations). Kabels pole→machine/pole→pole zijn `wire`-parts.

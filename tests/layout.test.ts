@@ -131,7 +131,7 @@ describe('rows, parallel belts and block settings', () => {
   });
   it('feeds from the middle also with several rows (corridor in the middle)', () => {
     const L = geomLocal(smelt, { ...base, perRow: 4, inSide: 'center' });
-    expect(L.inSide).toBe('center');
+    expect(L.inSides!['iron-ore']).toBe('center');
     expect(L.rows).toBeGreaterThan(1);
     const pu = L.inLanes[0].pu;
     // no machine sits on the trunk
@@ -148,7 +148,7 @@ describe('rows, parallel belts and block settings', () => {
     for (const inSide of ['left', 'center', 'right'] as const)
       for (const outSide of ['left', 'center', 'right'] as const) {
         const L = geomLocal(two, { ...base, inSide, outSide });
-        expect([L.U / 8, L.inSide, L.outSide]).toEqual([2, inSide, outSide]);
+        expect([L.U / 8, L.inSides!['iron-ingot'], L.outSide]).toEqual([2, inSide, outSide]);
       }
     // middle: the entry lies between the two machines
     const C = geomLocal(two, { ...base, inSide: 'center' });
@@ -157,8 +157,34 @@ describe('rows, parallel belts and block settings', () => {
   it('feeds from the middle when asked and possible', () => {
     const g = model.groups.find((x) => x.key === 'm:modular-frame')!;
     const L = geomLocal(g, { gap: 2, perRow: 8, caps: model.caps, align: true, inSide: 'center' });
-    expect(L.inSide).toBe('center');
+    expect(Object.values(L.inSides!)).toEqual(['center', 'center']);
     expect(Math.abs(L.inLanes[0].pu - L.U / 2)).toBeLessThan(8);
+  });
+});
+
+describe('per-input sides, balancer and split output', () => {
+  const asm = model.groups.find((x) => x.key === 'm:reinforced-iron-plate')!;
+  it('lets every input come from its own side', () => {
+    const L = geomLocal(asm, { gap: 2, perRow: 8, caps: model.caps, align: true, inSides: { 'iron-plate': 'left', screw: 'right' } });
+    const [a, b] = L.inLanes;
+    expect(a.pu).toBeLessThan(b.pu);
+    expect(L.inSides).toEqual({ 'iron-plate': 'left', screw: 'right' });
+  });
+  it('feeds a single-row balancer from the middle, without side strips', () => {
+    const L = geomLocal({ ...asm, dist: 'balancer' }, { gap: 2, perRow: 8, caps: model.caps, align: true, inSide: 'left' });
+    expect(Object.values(L.inSides!)).toEqual(['center', 'center']);
+    expect(L.U / 8).toBe(Math.ceil(asm.count * 16 / 8));
+  });
+  it('splits the output over consumers with a balancing splitter', async () => {
+    const { allocate } = await import('../src/layout/geometry');
+    expect(allocate(3, [20, 10])).toEqual([2, 1]);
+    const rod = model.groups.find((x) => x.key === 'm:iron-rod')!;
+    const L = geomLocal(rod, {
+      gap: 2, perRow: 0, caps: model.caps, align: true,
+      outSplit: [{ key: 'a', rate: rod.rate * 0.7 }, { key: 'b', rate: rod.rate * 0.3 }],
+    });
+    expect(L.split).toBe(true);
+    expect(L.outLanes.filter((l) => l.item === 'iron-rod').map((l) => l.to)).toEqual(['a', 'b']);
   });
 });
 

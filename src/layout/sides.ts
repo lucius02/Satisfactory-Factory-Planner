@@ -1,13 +1,14 @@
 /**
- * Automatic entry / exit side of each block: the input comes in on the side where its suppliers
- * lie (straight above = middle), the output leaves on the side of its consumers.
+ * Automatic entry / exit sides of each block: every input item comes in on the side where its own
+ * suppliers lie (straight above = middle), the output leaves on the side of its consumers.
  */
 import { suppliers, type Group, type Model } from '../calc/model';
+import type { ItemId } from '../data/types';
 import type { GroupPos } from '../state/types';
 import type { LocalGeom, Side } from './geometry';
 
 export interface Sides {
-  in: Side;
+  in: Record<ItemId, Side>;
   out: Side;
 }
 
@@ -15,8 +16,7 @@ export function autoSides(model: Model, pos: Record<string, GroupPos>, local: Re
   // position along the row of machines (x, or y for a rotated block)
   const span = (g: Group) => {
     const p = pos[g.key];
-    const L = local[g.key];
-    return p.rot ? { a: p.y, len: L.U } : { a: p.x, len: L.U };
+    return { a: p.rot ? p.y : p.x, len: local[g.key].U };
   };
   const centerOf = (g: Group) => {
     const s = span(g);
@@ -35,9 +35,22 @@ export function autoSides(model: Model, pos: Record<string, GroupPos>, local: Re
   const out: Record<string, Sides> = {};
   for (const g of model.groups) {
     if (!pos[g.key] || g.kind === 'source') continue;
-    const sup = avg(g.inputs.flatMap((i) => suppliers(model, i.item).map((s) => centerOf(s.g))));
+    const ins: Record<ItemId, Side> = {};
+    for (const i of g.inputs) ins[i.item] = sideOf(g, avg(suppliers(model, i.item).map((s) => centerOf(s.g))), 'left');
     const con = avg(g.outputs.flatMap((o) => (consumers[o.item] ?? []).map(centerOf)));
-    out[g.key] = { in: sideOf(g, sup, 'left'), out: sideOf(g, con, 'right') };
+    out[g.key] = { in: ins, out: sideOf(g, con, 'right') };
   }
+  return out;
+}
+
+/** Consumers of a group's main output with the amount each one takes (for a split output). */
+export function consumersOf(model: Model, g: Group): { key: string; rate: number }[] {
+  if (g.kind !== 'machine') return [];
+  const out: { key: string; rate: number }[] = [];
+  const share = suppliers(model, g.id).find((s) => s.g === g)?.share ?? 0;
+  for (const u of model.groups)
+    for (const i of u.inputs) if (i.item === g.id && share > 0) out.push({ key: u.key, rate: i.rate * share });
+  const target = model.targets[g.id];
+  if (target) out.push({ key: '*target', rate: target * share });
   return out;
 }

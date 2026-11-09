@@ -8,6 +8,7 @@ import { isFluid, itemName } from '../data/items';
 import { RECIPES } from '../data/recipes';
 import { t } from '../i18n';
 import { renderMap } from '../render/map';
+import { consumersOf } from '../layout/sides';
 import { saveState, state } from '../state/store';
 import type { DistMode } from '../state/types';
 import { beltFor, col, duration, esc, fmt, fmtInt, fname, pct, unit } from '../util/format';
@@ -37,9 +38,17 @@ function blockSettings(g: Group): string {
     `<select data-act="${act}"><option value=""${!cur ? ' selected' : ''}>${esc(t('sideAutoIs', name(auto)))}</option>${(['left', 'center', 'right'] as const)
       .map((v) => `<option value="${v}"${v === cur ? ' selected' : ''}>${name(v)}</option>`)
       .join('')}</select>`;
+  const nCons = consumersOf(ctx.model, g).length;
+  const inRows = g.inputs
+    .map(
+      (i) =>
+        `<div class="field"><label>${t('inSideOf', itemName(i.item))}</label>${sel(`in:${i.item}`, o.inSides?.[i.item] ?? o.side, L?.inSides?.[i.item])}</div>`,
+    )
+    .join('');
   return `${h2('blockH')}
-    <div class="field"><label>${t('inSide')}</label>${sel('side', o.side, L?.inSide)}</div>
+    ${inRows}
     ${g.outputs.length ? `<div class="field"><label>${t('outSide')}</label>${sel('outSide', o.outSide, L?.outSide)}</div>` : ''}
+    ${nCons > 1 ? `<label class="check"><input type="checkbox" data-act="outSplit"${o.outSplit ? ' checked' : ''}> <span>${t('outSplit')}</span></label>${o.outSplit && !L?.split ? `<p class="note mt-0">${t('outSplitNote')}</p>` : ''}` : ''}
     <div class="field"><label>${t('perRow')}</label><input type="number" min="0" step="1" data-act="perRow" value="${o.perRow ?? 0}" title="0 = ${esc(t('sideAuto'))}"></div>
     <div class="field"><label>${t(state.align ? 'spacingF' : 'spacingM')}</label><input type="number" min="0" step="1" data-act="spacing" value="${o.spacing ?? 0}"></div>`;
 }
@@ -202,9 +211,21 @@ export function bindInfo(): void {
       else delete state.rc[g.id];
       renderRecBtn();
       recompute();
-    } else if (['side', 'outSide', 'perRow', 'spacing'].includes(s.dataset.act ?? '')) {
+    } else if (['outSide', 'perRow', 'spacing', 'outSplit'].includes(s.dataset.act ?? '') || s.dataset.act?.startsWith('in:')) {
       const o = (state.blockOpt[g.key] ??= {});
-      if (s.dataset.act === 'side' || s.dataset.act === 'outSide') {
+      if (s.dataset.act?.startsWith('in:')) {
+        const item = s.dataset.act.slice(3);
+        o.inSides ??= {};
+        // a block-wide `side` from older versions becomes per item
+        if (o.side) for (const i of g.inputs) o.inSides[i.item] ??= o.side;
+        delete o.side;
+        if (s.value) o.inSides[item] = s.value as 'left' | 'center' | 'right';
+        else delete o.inSides[item];
+        if (!Object.keys(o.inSides).length) delete o.inSides;
+      } else if (s.dataset.act === 'outSplit') {
+        if ((s as unknown as HTMLInputElement).checked) o.outSplit = true;
+        else delete o.outSplit;
+      } else if (s.dataset.act === 'outSide') {
         const k = s.dataset.act as 'side' | 'outSide';
         if (s.value) o[k] = s.value as 'left' | 'center' | 'right';
         else delete o[k];

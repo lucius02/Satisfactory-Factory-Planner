@@ -20,8 +20,12 @@ export type Page = 'factory' | 'power';
 
 /** Settings of one block (production line), set in its info panel. */
 export interface BlockOpt {
-  /** Where the input belts enter: left, middle or right (unset = automatic left/right). */
+  /** Where the input belts enter: left, middle or right, for all inputs (unset = automatic). */
   side?: 'left' | 'center' | 'right';
+  /** Entry side per input item (overrides `side`). */
+  inSides?: Record<string, 'left' | 'center' | 'right'>;
+  /** Split the main output: one belt per consumer instead of one merged belt. */
+  outSplit?: boolean;
   /** Where the output belts leave: left, middle or right (unset = automatic). */
   outSide?: 'left' | 'center' | 'right';
   /** Machines per row for this block (unset = global setting). */

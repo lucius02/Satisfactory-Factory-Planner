@@ -277,7 +277,7 @@ export function renderMap(opts: { fast?: boolean } = {}): void {
         const pw = WG[sp.g.key];
         if (pw.f !== cur && w.f !== cur) return;
         const rate = inp.rate * sp.share;
-        const from = pw.outs[pw.outIdx[inp.item]];
+        const from = pw.outFor(inp.item, g.key);
         const key = `${sp.g.key}>${g.key}|${inp.item}`;
         if (pw.f === w.f) {
           jobs.push({ key, item: inp.item, rate, a: from, da: pw.dir, b: w.ins[k], db: w.dir, pre: [], post: [], label: true });
@@ -378,7 +378,7 @@ export function renderMap(opts: { fast?: boolean } = {}): void {
       if (target > 1e-6) items.push([`★ ${t('endProduct')}: ${fmt(target)}${unit(o.item)}`, '#ffb85c']);
       if (leftHere > 1e-6) items.push([`${t('surplus')}: ${itemName(o.item)} ${fmt(leftHere)}${unit(o.item)}`, '#9aa3ad']);
       if (!items.length) return;
-      const p = w.outs[j];
+      const p = target > 1e-6 ? w.outFor(o.item, '*target') : w.outs[w.outIdx[o.item]];
       const end: Pt = [p[0] + w.dir[0] * 3, p[1] + w.dir[1] * 3];
       h += `<path d="${P([p, end])}" stroke="${items[0][1]}" stroke-width=".7" fill="none" marker-end="url(#arr)"/>`;
       items.forEach(([txt, c], i) => {
