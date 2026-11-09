@@ -155,7 +155,7 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
   // with several rows its trunk runs on the left or right
   const inSideOf = (k: number): Side => {
     const sd = s.inSides?.[g.inputs[k].item] ?? s.inSide ?? 'left';
-    if (balanced && !isFluid(g.inputs[k].item)) return nRows === 1 ? 'center' : sd === 'center' ? 'left' : sd;
+    if (balanced && pr > 1 && !isFluid(g.inputs[k].item)) return nRows === 1 ? 'center' : sd === 'center' ? 'left' : sd;
     return sd;
   };
   const outSide: Side = s.outSide ?? 'right';
@@ -226,7 +226,16 @@ export function geomLocal(g: Group, s: GeoSettings): LocalGeom {
   const sideRank: Record<Side, number> = { left: 0, center: 1, right: 2 };
   const inOrder = g.inputs.map((_, k) => k).sort((a, b) => sideRank[inSideOf(a)] - sideRank[inSideOf(b)] || a - b);
   const inSlot = g.inputs.map((_, k) => inOrder.indexOf(k));
-  const inOff = (k: number) => (inSlot[k] - (nIn - 1) / 2) * sIn;
+  // a single machine without trunk: the side decides where over the machine the belt enters
+  // (left / middle / right part); several belts on the same side stay next to each other
+  const single = nRows === 1 && pr === 1 && !needsTrunk;
+  const inOff = (k: number) => {
+    if (!single) return (inSlot[k] - (nIn - 1) / 2) * sIn;
+    const sd = inSideOf(k);
+    const same = inOrder.filter((j) => inSideOf(j) === sd);
+    const base = sd === 'left' ? -b.w / 4 : sd === 'right' ? b.w / 4 : 0;
+    return base + (same.indexOf(k) - (same.length - 1) / 2) * sIn;
+  };
   const outOff = (j: number) => (j - (nOut - 1) / 2) * sOut;
   /** Position of the trunk / entry belt for a side. */
   const portU = (side: Side, k: number, off: number, isIn: boolean) =>

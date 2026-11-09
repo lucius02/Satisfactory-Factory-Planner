@@ -272,3 +272,20 @@ describe('input order follows the chosen side', () => {
     expect(rod.pu).toBeGreaterThan(screw.pu);
   });
 });
+
+describe('input sides on a single machine', () => {
+  const rotor = compute({
+    targets: [{ item: 'rotor', rate: 4 }], external: [], rc: {}, miner: 1, purity: 1, clockMode: 'even', belt: 2, pipe: 1,
+    reuse: true, surplus: 'output', dist: 'balancer', distOv: {}, balSmooth: true,
+  }).byKey['m:rotor'];
+  const base = { gap: 0, perRow: 0, caps: { belt: 120, pipe: 300 }, align: true };
+  type Sd = 'left' | 'center' | 'right';
+  const rodAt = (rod: Sd) =>
+    geomLocal(rotor, { ...base, inSides: { 'iron-rod': rod, screw: 'left' } }).inLanes.find((l) => l.item === 'iron-rod')!.pu;
+
+  it('moves the belts over the machine according to the chosen side', () => {
+    expect(rotor.count).toBe(1);
+    expect(rodAt('left')).toBeLessThan(rodAt('center'));
+    expect(rodAt('center')).toBeLessThan(rodAt('right'));
+  });
+});
