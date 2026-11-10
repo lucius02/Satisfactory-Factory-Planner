@@ -111,6 +111,10 @@ export interface State {
   pole: 1 | 2 | 3;
   /** Draw the power lines between production lines on the map. */
   showWires: boolean;
+  /** Layout locked: blocks and belts cannot be moved, rotated or re-laid out. */
+  locked: boolean;
+  /** Recompute right away after every change (otherwise only with the Plan button). */
+  autoPlan: boolean;
   /** Satisfactory 1.2: buildings pass power on to each other, so one pole per row is enough. */
   daisy: boolean;
   /** Too much flow for one belt: extra rows (true) or parallel belts in the same row (false). */

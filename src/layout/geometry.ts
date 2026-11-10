@@ -199,8 +199,9 @@ export function geomLocal(g0: Group, s: GeoSettings): LocalGeom {
 
   const powered = g.kind === 'machine' || g.kind === 'generator' || g.kind === 'sink' || (g.kind === 'source' && (g.ex?.mw ?? 0) > 0);
   // two belts into one balancer row: each half gets its own (smaller) balancer tree
-  const balHalves = balanced && g.inputs.some((f) => !isFluid(f.item) && beltsFor(f, pr) > 1);
-  const balLevels = balanced ? balancerCount(balHalves ? Math.ceil(pr / 2) : pr).levels : 0;
+  // tree depth per balanced input: an input with two belts gets a balancer per half (smaller tree)
+  const balLevelsOf = (f: { item: ItemId; rate: number }) =>
+    balancerCount(beltsFor(f, pr) > 1 ? Math.ceil(pr / 2) : pr).levels;
   const LANE_STEP = 2.2;
   const treeLevels = Math.ceil(Math.log2(Math.max(2, pr)));
   const inBand = g.inputs.map((f, k) =>
@@ -209,7 +210,7 @@ export function geomLocal(g0: Group, s: GeoSettings): LocalGeom {
         ? treeLevels * LEVEL_F + 1
         : BAND_FLUID + (inBeltsK(k) - 1) * LANE_STEP + (fluidMode === 'loopback' ? LOOP_F : 0)
       : balanced
-        ? Math.max(1, balLevels) * LEVEL + 1
+        ? Math.max(1, balLevelsOf(f)) * LEVEL + 1
         : BAND_SOLID + (inBeltsK(k) - 1) * LANE_STEP,
   );
   const outBand = g.outputs.map(

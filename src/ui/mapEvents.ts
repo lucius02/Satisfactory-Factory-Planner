@@ -3,7 +3,9 @@ import { $, ctx } from '../app/context';
 import { recompute } from '../app/controller';
 import { applyView, fitView, renderMap, zoomAt } from '../render/map';
 import { saveState, state } from '../state/store';
-import { itemName } from '../data/items';
+import { isFluid, itemName } from '../data/items';
+import { nearFullPipe } from '../calc/pumps';
+import { t } from '../i18n';
 import { beltFor, col, esc, fmt, unit } from '../util/format';
 import { renderInfo, rotateSelected } from './info';
 import { groupTitle } from './labels';
@@ -11,7 +13,7 @@ import { groupTitle } from './labels';
 type Drag =
   | { mode: 'belt'; key: string; sx: number; sy: number; moved: boolean }
   | { mode: 'move'; key: string; w0: [number, number]; p0: { x: number; y: number }; sx: number; sy: number; moved: boolean }
-  | { mode: 'pan'; sx: number; sy: number; t0: { tx: number; ty: number }; moved: boolean; conn?: string };
+  | { mode: 'pan'; sx: number; sy: number; t0: { tx: number; ty: number }; moved: boolean; conn?: string; keep?: boolean };
 
 export function bindMap(): void {
   const svg = $<SVGSVGElement>('#map');
@@ -30,12 +32,15 @@ export function bindMap(): void {
     } catch {
       /* ignore */
     }
-    if (belt) {
+    // locked layout: blocks can still be selected, but nothing moves (the map pans instead)
+    if (belt && !state.locked) {
       drag = { mode: 'belt', key: belt.dataset.belt!, sx: e.clientX, sy: e.clientY, moved: false };
     } else if (tg) {
       const key = tg.dataset.key!;
       const p = state.pos[key];
-      drag = { mode: 'move', key, w0: toWorld(e), p0: { x: p.x, y: p.y }, sx: e.clientX, sy: e.clientY, moved: false };
+      drag = state.locked
+        ? { mode: 'pan', sx: e.clientX, sy: e.clientY, t0: { tx: ctx.view.tx, ty: ctx.view.ty }, moved: false, keep: true }
+        : { mode: 'move', key, w0: toWorld(e), p0: { x: p.x, y: p.y }, sx: e.clientX, sy: e.clientY, moved: false };
       if (ctx.sel !== key) {
         ctx.sel = key;
         renderMap();
@@ -82,7 +87,9 @@ export function bindMap(): void {
   const endDrag = (e: PointerEvent) => {
     hideBeltTip();
     if (!drag) return;
-    if (drag.mode === 'pan' && !drag.moved && drag.conn) showBeltTip(drag.conn, e.clientX, e.clientY);
+    if (drag.mode === 'pan' && !drag.moved && drag.keep) {
+      /* selected a block while locked */
+    } else if (drag.mode === 'pan' && !drag.moved && drag.conn) showBeltTip(drag.conn, e.clientX, e.clientY);
     else if (drag.mode === 'pan' && !drag.moved && ctx.sel) {
       ctx.sel = null;
       renderMap();
@@ -101,6 +108,7 @@ export function bindMap(): void {
   };
   svg.addEventListener('pointerup', endDrag);
   svg.addEventListener('dblclick', (e) => {
+    if (state.locked) return;
     const belt = (e.target as Element).closest<SVGElement>('[data-belt]');
     if (!belt) return;
     delete state.beltOff[belt.dataset.belt!];
@@ -127,7 +135,7 @@ export function bindMap(): void {
 
   document.addEventListener('keydown', (e) => {
     if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName ?? '')) return;
-    if (e.key === 'r' || e.key === 'R') rotateSelected();
+    if ((e.key === 'r' || e.key === 'R') && !state.locked) rotateSelected();
     if (e.key === 'Escape') {
       ctx.sel = null;
       renderMap();
@@ -135,7 +143,16 @@ export function bindMap(): void {
     }
   });
 
-  $('#btnAuto').onclick = () => recompute({ force: true, fit: true });
+  $('#btnAuto').onclick = () => {
+    if (!state.locked) recompute({ force: true, fit: true });
+  };
+  $('#btnLock').onclick = () => {
+    state.locked = !state.locked;
+    saveState(state);
+    renderLock();
+    renderInfo();
+  };
+  renderLock();
   $('#btnFit').onclick = fitView;
   $('#tabMap').onclick = () => switchTab('map');
   $('#tabTable').onclick = () => switchTab('table');
@@ -169,10 +186,21 @@ function showBeltTip(key: string, x: number, y: number): void {
   el.style.top = `${y - r.top + 12}px`;
   el.innerHTML = `<b><span class="dot" style="background:${col(c.item)}"></span>${esc(itemName(c.item))}</b>
     <div class="font-mono">${fmt(c.rate)}${unit(c.item)} · ${beltFor(c.rate, c.item)}</div>
-    <div class="text-xs text-muted">${esc(name(from))} → ${esc(name(to))}</div>`;
+    <div class="text-xs text-muted">${esc(name(from))} → ${esc(name(to))}</div>
+    ${isFluid(c.item) && nearFullPipe(c.rate / Math.max(1, Math.ceil(c.rate / ctx.model.caps.pipe - 1e-6)), ctx.model.caps.pipe) ? `<div class="mt-1 max-w-60 text-xs text-accent2">⚠ ${esc(t('pipeFull'))}</div>` : ''}`;
   stage.append(el);
 }
 
 function hideBeltTip(): void {
   document.getElementById('beltTip')?.remove();
+}
+
+/** Lock button text and the state of the buttons that would change the layout. */
+export function renderLock(): void {
+  const b = $('#btnLock');
+  b.textContent = state.locked ? `🔒 ${t('lockOn')}` : `🔓 ${t('lockOff')}`;
+  b.classList.toggle('btn-primary', state.locked);
+  b.title = t(state.locked ? 'lockedHint' : 'unlockedHint');
+  ($('#btnAuto') as HTMLButtonElement).disabled = state.locked;
+  document.getElementById('map')?.classList.toggle('locked', state.locked);
 }

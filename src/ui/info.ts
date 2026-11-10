@@ -25,9 +25,9 @@ function floorRow(f: number): string {
   const F = state.floors || 1;
   if (F < 2) return '';
   return `<div class="mt-2.5 flex items-center gap-1.5 text-[13px]">${t('floor')}:
-    <button class="btn btn-sm" data-act="fdown" ${f <= 0 ? 'disabled' : ''}>▼ ${t('down')}</button>
+    <button class="btn btn-sm" data-act="fdown" ${f <= 0 || state.locked ? 'disabled' : ''}>▼ ${t('down')}</button>
     <b class="min-w-11 text-center font-mono">${fname(f)}</b>
-    <button class="btn btn-sm" data-act="fup" ${f >= F - 1 ? 'disabled' : ''}>▲ ${t('up')}</button></div>`;
+    <button class="btn btn-sm" data-act="fup" ${f >= F - 1 || state.locked ? 'disabled' : ''}>▲ ${t('up')}</button></div>`;
 }
 
 function blockSettings(g: Group, outputOnly = false): string {
@@ -90,7 +90,8 @@ export function renderInfo(): void {
   const p = state.pos[g.key];
   const w = ctx.world[g.key];
   const size = `${w.W / 8} × ${w.H / 8} foundations`;
-  const acts = `<div class="mt-3 flex flex-wrap gap-1.5"><button class="btn btn-sm" data-act="rot">${t('rotate')}</button>${p.manual ? `<button class="btn btn-sm" data-act="auto">${t('backAuto')}</button>` : ''}<button class="btn btn-sm" data-act="close">${t('close')}</button></div>`;
+  const lk = state.locked ? ' disabled' : '';
+  const acts = `<div class="mt-3 flex flex-wrap gap-1.5"><button class="btn btn-sm" data-act="rot"${lk}>${t('rotate')}</button>${p.manual ? `<button class="btn btn-sm" data-act="auto"${lk}>${t('backAuto')}</button>` : ''}<button class="btn btn-sm" data-act="close">${t('close')}</button></div>`;
   const head = (title: string, meta: string) =>
     `<h3 class="m-0 font-head text-[21px] font-bold tracking-wide">${esc(title)}</h3><div class="mb-2.5 mt-0.5 text-[12.5px] text-muted">${meta}</div>`;
 

@@ -12,6 +12,8 @@ export interface Box {
 }
 
 const CELL = 2;
+/** Clearance kept between belts and blocks (m); ports sit 3 m outside their block. */
+const CLEAR = 1.5;
 const TURN = 3;
 const USED = 4;
 const DIRS: Pt[] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -41,8 +43,10 @@ export class Router {
     this.ny = Math.ceil((y1 + m - this.y0) / CELL);
     this.blocked = new Uint8Array(this.nx * this.ny);
     this.used = new Uint8Array(this.nx * this.ny);
-    for (const b of boxes) {
-      // a cell is blocked when its centre lies inside the block
+    for (const b0 of boxes) {
+      // keep belts and pipes a little away from the blocks, so they never seem to run through them
+      const b = { x: b0.x - CLEAR, y: b0.y - CLEAR, w: b0.w + 2 * CLEAR, h: b0.h + 2 * CLEAR };
+      // a cell is blocked when its centre lies inside the (enlarged) block
       const i0 = Math.ceil((b.x - this.x0) / CELL - 0.5);
       const i1 = Math.floor((b.x + b.w - this.x0) / CELL - 0.5);
       const j0 = Math.ceil((b.y - this.y0) / CELL - 0.5);

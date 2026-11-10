@@ -3,7 +3,7 @@
  * Selected items with their rate on top, below a search field and an alphabetical checkbox list.
  */
 import { $ } from '../app/context';
-import { recompute } from '../app/controller';
+import { planChanged } from '../app/controller';
 import { ITEMS } from '../data/items';
 import { RECIPES } from '../data/recipes';
 import type { ItemId } from '../data/types';
@@ -67,7 +67,7 @@ export function bindPickers(): void {
       if (el.dataset.f !== 'rate') return;
       const row = el.closest<HTMLElement>('.trow')!;
       listOf(k)[+row.dataset.row!].rate = Math.max(0, parseFloat(String(el.value).replace(',', '.')) || 0);
-      recompute();
+      planChanged();
     });
     root.addEventListener('click', (e) => {
       const el = e.target as HTMLElement;
@@ -75,7 +75,7 @@ export function bindPickers(): void {
       listOf(k).splice(+el.closest<HTMLElement>('.trow')!.dataset.row!, 1);
       renderSelected(k);
       renderOptions(k);
-      recompute({ fit: true });
+      planChanged({ fit: true });
     });
     root.addEventListener('change', (e) => {
       const el = e.target as HTMLInputElement;
@@ -85,7 +85,7 @@ export function bindPickers(): void {
       if (el.checked) list.push({ item: id, rate: DEFAULT_RATE[k] });
       else list.splice(list.findIndex((x) => x.item === id), 1);
       renderSelected(k);
-      recompute({ fit: true });
+      planChanged({ fit: true });
     });
   }
 }

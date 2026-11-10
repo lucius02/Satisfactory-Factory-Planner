@@ -25,6 +25,12 @@
           <button class="tab-btn flex-1" data-pagebtn="power" data-i="pagePower"></button>
         </div>
 
+        <div class="sticky top-0 z-[5] border-b border-line bg-panel px-[18px] py-2.5">
+          <button class="btn w-full" id="btnPlan" data-i="plan" disabled></button>
+          <p class="note mt-1.5 mb-0 text-accent2" id="planNote" data-i="planNote" hidden></p>
+          <label class="check mt-1.5 mb-0"><input type="checkbox" id="autoPlan" data-setting="autoPlan" /> <span data-i="autoPlan"></span></label>
+        </div>
+
         <section class="side-section" data-page="power">
           <h2 class="h2" data-i="powerH"></h2>
           <div id="gens"></div>
@@ -162,6 +168,7 @@
             <button id="tabTable" class="tab-btn" role="tab" data-i="tabTable"></button>
           </div>
           <div class="flex items-center gap-1 pl-1.5" id="floorTabs" hidden></div>
+          <button class="btn" id="btnLock"></button>
           <button class="btn" id="btnAuto" data-i="auto"></button>
           <button class="btn" id="btnFit" data-i="fit"></button>
           <button class="btn" id="btnRec"></button>

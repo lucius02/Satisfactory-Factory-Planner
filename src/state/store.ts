@@ -40,6 +40,8 @@ export const DEFAULT_STATE: State = {
   produceFuel: true,
   pole: 2,
   showWires: true,
+  locked: false,
+  autoPlan: false,
   daisy: true,
   align: true,
   capRows: false,

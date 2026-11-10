@@ -25,6 +25,8 @@ export interface RecomputeOpts {
 }
 
 export function recompute(opts: RecomputeOpts = {}): void {
+  pending = null;
+  renderPlanButton();
   ctx.auto = autoRecipes();
   ctx.model = compute({ ...planInput(), rc: effectiveRc() });
   if (ctx.sel && !ctx.model.byKey[ctx.sel]) ctx.sel = null;
@@ -57,6 +59,36 @@ export function recompute(opts: RecomputeOpts = {}): void {
   renderAll();
   if (opts.fit) fitView();
   saveState(state);
+}
+
+let pending: RecomputeOpts | null = null;
+
+/**
+ * A plan input changed (target, setting, recipe…). With "update directly" on it is recomputed at once;
+ * otherwise the change waits for the Plan button, so a typo like 1000 instead of 10 cannot freeze the app.
+ */
+export function planChanged(opts: RecomputeOpts = {}): void {
+  saveState(state);
+  if (state.autoPlan) return recompute(opts);
+  pending = { fit: !!(pending?.fit || opts.fit), force: !!(pending?.force || opts.force) };
+  renderPlanButton();
+}
+
+/** Apply waiting changes (Plan button). */
+export function planNow(): void {
+  const opts = pending ?? {};
+  pending = null;
+  recompute({ ...opts, fit: true });
+  renderPlanButton();
+}
+
+export function renderPlanButton(): void {
+  const btn = document.getElementById('btnPlan') as HTMLButtonElement | null;
+  if (!btn) return;
+  btn.disabled = !pending;
+  btn.classList.toggle('btn-primary', !!pending);
+  const note = document.getElementById('planNote');
+  if (note) note.hidden = !pending;
 }
 
 export function renderAll(): void {

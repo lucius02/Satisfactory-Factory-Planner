@@ -54,6 +54,8 @@ Lettertypes komen uit `@fontsource/*` (gebundeld), zodat de desktop-apps offline
   - `extractors.ts` — miners/extractors (output begrensd door band/pijp), met afmetingen (Miner 6×14, Water Extractor 20×19,5,
     Oil Extractor 8×14, Resource Well Extractor ±6×6). `geomLocal()` tekent ze als gebouwen met merger-manifold;
     externe aanvoer en kernafval blijven een klein markeringsblok.
+  - `pumps.ts` — head lift (Plumbing Manual): machine 10 m, Pump Mk1 +20 m, Mk2 +50 m, gassen geen head lift;
+    `pumpsFor()` voor vloeistof naar een hogere verdieping (8 m per verdieping), `nearFullPipe()` (Mk2 > 90%: terugstroming).
   - `recipes.ts` — gekozen recept, productiediepte, alt-telling.
   - `optimize.ts` — `chooseRecipes()`: kiest per product automatisch het beste recept uit de ontgrendelde recepten
     (`state.unlocked`; standaardrecepten altijd beschikbaar), doel `raw`/`power`/`machines`. Handmatige keuzes (`state.rc`) blijven vast.
@@ -79,7 +81,7 @@ Lettertypes komen uit `@fontsource/*` (gebundeld), zodat de desktop-apps offline
   Levert tekenbare `parts` en `counts` (splitters/mergers/junctions). `worldGeom()` past positie/rotatie toe.
 - `layout/autoLayout.ts` — `flow` (rijen per productiediepte) of `compact` (shelf-packing), barycentrum-sortering,
   max. verdiepingsgrootte (`floorW`×`floorL` foundations), verdiepingen; handmatig geplaatste blokken zijn obstakels.
-- `render/router.ts` — A*-bandrouter op een raster van 2 m om blokken heen (weinig bochten, niet over andere banden).
+- `render/router.ts` — A*-bandrouter op een raster van 2 m om blokken heen (1,5 m vrije ruimte rond elk blok) (weinig bochten, niet over andere banden).
   Sleeppunt per verbinding in `state.beltOff`, relatief t.o.v. het midden tussen beide band-uiteinden (beweegt mee met de blokken).
   Tijdens slepen snelle route, bij loslaten A*. Blokken tegen elkaar (`touching()`): directe band langs de naad, zonder label, met eigen pijlpunt;
   `straighten()` haalt kleine haakjes uit A*-routes;
@@ -96,7 +98,11 @@ Lettertypes komen uit `@fontsource/*` (gebundeld), zodat de desktop-apps offline
 - `ui/picker.ts` — productkiezer en externe aanvoer (zoekbalk + checkboxlijst, alfabetisch).
 - `render/map.ts` — SVG in wereldcoördinaten (1 eenheid = 1 meter), pan/zoom via één `matrix()`.
 - `ui/` — zijbalk, tabel, infopaneel, receptenvenster, deelvenster, kaart-events.
-- `app/context.ts` (runtime-state: model, selectie, view, geometrie) en `app/controller.ts` (`recompute()`, `refreshAll()`).
+- `app/context.ts` (runtime-state: model, selectie, view, geometrie) en `app/controller.ts` (`recompute()`, `refreshAll()`,
+  `planChanged()` / `planNow()`: wijzigingen aan doelen, instellingen en generatoren wachten op de knop "Layout plannen",
+  tenzij `state.autoPlan`; recepten, blokinstellingen en kaartacties rekenen direct).
+- Vergrendelen: `state.locked` (knop in de werkbalk) — blokken/banden niet verslepen, draaien of naar een andere verdieping,
+  auto-indeling uit; selecteren en pannen blijft.
 - `state/` — `State`-type en `store.ts` (localStorage-sleutel `sf-fabrieksplanner-v3`, migreert v2; deelcode export/import).
 - `i18n/` — `texts.ts` met alle teksten (`nl`, `en`), `t('sleutel', ...args)`; statische HTML krijgt `data-i="sleutel"`.
 

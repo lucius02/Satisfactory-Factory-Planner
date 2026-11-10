@@ -223,3 +223,6 @@
 .belt-hit {
   cursor: pointer;
 }
+#map.locked [data-key] {
+  cursor: pointer;
+}

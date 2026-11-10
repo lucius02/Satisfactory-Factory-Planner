@@ -5,7 +5,8 @@ import { isFluid, itemName } from '../data/items';
 import { t } from '../i18n';
 import { POLE_CONNECTIONS, worldGeom, type Pt, type WorldGeom } from '../layout/geometry';
 import { ortho, Router, simplify, straighten } from './router';
-import { powerNetwork } from '../layout/powerNet';
+import { FLOOR_H, powerNetwork } from '../layout/powerNet';
+import { nearFullPipe, pumpsFor } from '../calc/pumps';
 import { state } from '../state/store';
 import { beltFor, col, esc, fmt, fmtInt, fname, hue, pct, unit } from '../util/format';
 import { groupTitle, sourceName } from '../ui/labels';
@@ -302,7 +303,10 @@ export function renderMap(opts: { fast?: boolean } = {}): void {
         const Lp: Pt = [inp0[0] - w.dir[0] * 7 + w.dir[1] * si * 4, inp0[1] - w.dir[1] * 7 + w.dir[0] * si * 4];
         if (w.f === cur) {
           conns.push({ key, item: inp.item, rate, pts: [Lp, [inp0[0] - w.dir[0] * 7, inp0[1] - w.dir[1] * 7], inp0], label: false });
-          lifts += lift(Lp, pw.f, true, `${fmt(rate)}${unit(inp.item)}`);
+          // a fluid that has to go up needs pumps (head lift: machine 10 m, Pump Mk.1 +20 m, Mk.2 +50 m)
+          const pumps = isFluid(inp.item) && w.f > pw.f ? pumpsFor((w.f - pw.f) * FLOOR_H, inp.item) : null;
+          const pumpTxt = pumps && pumps.mk1 ? ` · +${pumps.mk1}× Pump Mk1` : '';
+          lifts += lift(Lp, pw.f, true, `${fmt(rate)}${unit(inp.item)}${pumpTxt}`);
         } else {
           jobs.push({ key, item: inp.item, rate, a: from, da: pw.dir, b: Lp, db: w.dir, pre: [], post: [], label: true });
           lifts += lift(Lp, w.f, false);
@@ -379,7 +383,9 @@ export function renderMap(opts: { fast?: boolean } = {}): void {
     // short belts (blocks right next to each other) get no text; click them instead
     if (c.label && length >= 18) {
       const vertical = Math.abs(pts[bi][0] - pts[bi - 1][0]) < 1e-6;
-      const txt = `${itemName(c.item)} · ${fmt(c.rate)}${unit(c.item)} · ${beltFor(c.rate, c.item)}`;
+      const perPipe = c.rate / Math.max(1, Math.ceil(c.rate / (fl ? model.caps.pipe : model.caps.belt) - 1e-6));
+      const warn = fl && nearFullPipe(perPipe, model.caps.pipe) ? ' ⚠' : '';
+      const txt = `${itemName(c.item)} · ${fmt(c.rate)}${unit(c.item)} · ${beltFor(c.rate, c.item)}${warn}`;
       labels += vertical ? tag(mid[0] - 1.6, mid[1], txt, col_, 1.25, true) : tag(mid[0], mid[1] - 1.6, txt, col_);
       const wp = wps[c.key];
       const hp = wp ?? mid;

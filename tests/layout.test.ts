@@ -362,3 +362,31 @@ describe('balancer with two belts in one row', () => {
     expect(L.parts.filter((p) => p.t === 'split').length).toBe(2);
   });
 });
+
+describe('no belts or pipes through machines', () => {
+  it('balancers with several inputs and all pipe modes keep lines out of the buildings', () => {
+    for (const item of ['plutonium-pellet', 'motor', 'computer', 'aluminum-ingot', 'plastic', 'battery'])
+      for (const dist of ['manifold', 'balancer'] as const) {
+        const m = compute({
+          targets: [{ item, rate: 60 }], external: [], rc: {}, miner: 2, purity: 1, clockMode: 'even', belt: 3, pipe: 1, reuse: true,
+          surplus: 'output', dist, distOv: {}, balSmooth: false,
+        });
+        for (const g of m.groups.filter((x) => x.kind === 'machine'))
+          for (const fluidDist of ['manifold', 'loopback', 'tree'] as const) {
+            const L = geomLocal(g, { gap: 2, perRow: 4, caps: m.caps, align: true, fluidDist });
+            for (const p of L.parts) {
+              if (p.t !== 'belt' && p.t !== 'loop') continue;
+              for (let i = 1; i < p.pts.length; i++) {
+                const [a, b] = [p.pts[i - 1], p.pts[i]];
+                for (const mm of L.machines) {
+                  const inside =
+                    Math.max(a[0], b[0]) > mm.u + 0.3 && Math.min(a[0], b[0]) < mm.u + mm.w - 0.3 &&
+                    Math.max(a[1], b[1]) > mm.v + 0.3 && Math.min(a[1], b[1]) < mm.v + mm.l - 0.3;
+                  expect(inside, `${g.key} ${dist} ${fluidDist}`).toBe(false);
+                }
+              }
+            }
+          }
+      }
+  }, 30_000);
+});

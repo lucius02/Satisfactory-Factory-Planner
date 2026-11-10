@@ -1,6 +1,6 @@
 /** Power page: list of generators (type, fuel, MW or count) and page switching. */
 import { $, ctx } from '../app/context';
-import { recompute, refreshAll } from '../app/controller';
+import { planChanged, refreshAll } from '../app/controller';
 import { GENERATORS, genFuel, type GenId } from '../data/generators';
 import { itemName } from '../data/items';
 import { t } from '../i18n';
@@ -57,7 +57,7 @@ export function bindPower(): void {
     else if (el.dataset.f === 'mode') g.mode = el.value as 'mw' | 'count';
     else if (el.dataset.f === 'value') g.value = Math.max(0, parseFloat(String(el.value).replace(',', '.')) || 0);
     if (full) renderGens();
-    recompute({ fit: full });
+    planChanged({ fit: full });
   };
   root.addEventListener('change', (e) => upd(e, (e.target as HTMLElement).tagName === 'SELECT'));
   root.addEventListener('input', (e) => {
@@ -68,11 +68,11 @@ export function bindPower(): void {
     if (el.dataset.f !== 'del') return;
     state.gens.splice(+el.closest<HTMLElement>('[data-gen]')!.dataset.gen!, 1);
     renderGens();
-    recompute({ fit: true });
+    planChanged({ fit: true });
   });
   $('#addGen').onclick = () => {
     state.gens.push({ gen: 'fuel', fuel: 'fuel', mode: 'count', value: 4 });
     renderGens();
-    recompute({ fit: true });
+    planChanged({ fit: true });
   };
 }

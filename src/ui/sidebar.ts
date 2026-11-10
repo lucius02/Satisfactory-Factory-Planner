@@ -1,5 +1,5 @@
 import { $, ctx } from '../app/context';
-import { recompute, refreshAll } from '../app/controller';
+import { planChanged, planNow, recompute, refreshAll } from '../app/controller';
 import { BUILDINGS } from '../data/buildings';
 import { ITEMS, itemName } from '../data/items';
 import { t } from '../i18n';
@@ -7,6 +7,10 @@ import { bounds, renderMap } from '../render/map';
 import { saveState, state } from '../state/store';
 import type { Lang, State } from '../state/types';
 import { col, esc, fmt, fmtInt, flong, fname, unit } from '../util/format';
+import { suppliers } from '../calc/model';
+import { pumpsFor } from '../calc/pumps';
+import { isFluid } from '../data/items';
+import { FLOOR_H } from '../layout/powerNet';
 import { renderInfo } from './info';
 import { sourceName } from './labels';
 
@@ -27,6 +31,7 @@ export function syncSettings(): void {
 }
 
 export function bindSidebar(): void {
+  $('#btnPlan').onclick = () => planNow();
   document.querySelectorAll<HTMLElement>('[data-lang]').forEach(
     (b) =>
       (b.onclick = () => {
@@ -43,7 +48,9 @@ export function bindSidebar(): void {
       else s[k] = 'num' in el.dataset ? Number(el.value) : el.value;
       if (k === 'snap') return saveState(state);
       syncSettings();
-      recompute({ fit: k === 'floors' });
+      // only drawing / behaviour settings apply at once; everything else waits for "Plan layout"
+      if (k === 'showWires' || k === 'autoPlan') return recompute();
+      planChanged({ fit: k === 'floors' });
     });
   });
 
@@ -148,11 +155,27 @@ export function renderOverview(): void {
     tot.wires += c.wires;
   }
   const net = ctx.net;
+  // pumps: fluids going up between floors (head lift)
+  let pumps1 = 0;
+  let pumps2 = 0;
+  for (const g of gs)
+    for (const i of g.inputs) {
+      if (!isFluid(i.item)) continue;
+      const fTo = state.pos[g.key]?.f ?? 0;
+      for (const sp of suppliers(model, i.item)) {
+        const fFrom = state.pos[sp.g.key]?.f ?? 0;
+        if (fTo <= fFrom) continue;
+        const p = pumpsFor((fTo - fFrom) * FLOOR_H, i.item);
+        pumps1 += p.mk1;
+        pumps2 += p.mk2;
+      }
+    }
   const sink = model.byKey['k:sink'];
   $('#logList').innerHTML =
     li(`${t('splitters')} <span class="sub">4×4 m</span>`, `${tot.splitters}×`) +
     li(`${t('mergers')} <span class="sub">4×4 m</span>`, `${tot.mergers}×`) +
     (tot.junctions ? li(t('junctions'), `${tot.junctions}×`) : '') +
+    (pumps1 ? li(`Pipeline Pump Mk1 <span class="sub">${t('pumpsOr', pumps2)}</span>`, `${pumps1}×`) : '') +
     li(`Power Pole Mk${state.pole}${net.extraPoles ? ` <span class="sub">${t('polesExtra', net.extraPoles)}</span>` : ''}`, `${tot.poles + net.extraPoles}×`) +
     li(`${t('powerLines')} <span class="sub">${t('wireLen', fmtInt(net.length))}</span>`, `${tot.wires + net.wires}×`) +
     li(t('beltTier'), `${t('belt')}${state.belt} · ${t('pipe')}${state.pipe}`) +
