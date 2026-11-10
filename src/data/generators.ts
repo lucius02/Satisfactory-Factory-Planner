@@ -58,7 +58,16 @@ export const genFuel = (gen: GenId, fuel: ItemId): GenFuel => GENERATORS[gen].fu
 export interface GenSpec {
   gen: GenId;
   fuel: ItemId;
-  /** mw = `value` is the wanted output in MW; count = `value` generators. */
-  mode: 'mw' | 'count';
+  /** mw = `value` is the wanted output in MW; count = `value` generators; fuel = `value` fuel per minute available. */
+  mode: 'mw' | 'count' | 'fuel';
   value: number;
+}
+
+/** Generators (fractional, at 100%) for a spec: from a count, an output in MW or the fuel per minute. */
+export function genExact(spec: GenSpec): number {
+  const G = GENERATORS[spec.gen];
+  if (!G) return 0;
+  if (spec.mode === 'mw') return spec.value / G.mw;
+  if (spec.mode === 'fuel') return spec.value / genFuel(spec.gen, spec.fuel).rate;
+  return spec.value;
 }

@@ -2,7 +2,7 @@
  * Item pickers in the sidebar: "What do you want to make?" (targets) and "External supply".
  * Selected items with their rate on top, below a search field and an alphabetical checkbox list.
  */
-import { $ } from '../app/context';
+import { $, ctx } from '../app/context';
 import { planChanged } from '../app/controller';
 import { ITEMS } from '../data/items';
 import { RECIPES } from '../data/recipes';
@@ -10,7 +10,7 @@ import type { ItemId } from '../data/types';
 import { t } from '../i18n';
 import { state } from '../state/store';
 import type { Target } from '../state/types';
-import { col, esc, unit } from '../util/format';
+import { col, esc, fmt, unit } from '../util/format';
 
 type Kind = 'targets' | 'external';
 
@@ -24,10 +24,12 @@ function renderSelected(k: Kind): void {
   $(`#${k} [data-sel]`).innerHTML = list.length
     ? list
         .map(
-          (tg, i) => `<div class="trow" data-row="${i}">
+          (tg, i) => `<div class="trow ${k === 'targets' ? 'trow-max' : ''}" data-row="${i}">
         <span class="truncate text-[13px]" title="${esc(ITEMS[tg.item].n)}"><span class="dot" style="background:${col(tg.item)}"></span>${esc(ITEMS[tg.item].n)}</span>
-        <input type="number" data-f="rate" min="0" step="any" value="${tg.rate}" aria-label="${t('perMin')}" title="${unit(tg.item).trim()}">
-        <button class="x-btn" data-f="del" aria-label="✕">✕</button></div>`,
+        ${k === 'targets' ? `<button class="btn btn-sm px-1.5 ${tg.max ? 'btn-primary' : ''}" data-f="max" title="${esc(t('maxHint'))}">Max</button>` : ''}
+        <input type="number" data-f="rate" min="0" step="any" value="${tg.rate}" aria-label="${tg.max ? t('maxRatio') : t('perMin')}" title="${tg.max ? esc(t('maxRatio')) : unit(tg.item).trim()}">
+        <button class="x-btn" data-f="del" aria-label="✕">✕</button>
+        ${tg.max ? `<p class="col-span-4 m-0 -mt-1 text-xs text-accent2" data-maxinfo="${tg.item}"></p>` : ''}</div>`,
         )
         .join('')
     : `<p class="note mt-0 mb-2">${t(k === 'targets' ? 'nothing' : 'noExternal')}</p>`;
@@ -71,6 +73,17 @@ export function bindPickers(): void {
     });
     root.addEventListener('click', (e) => {
       const el = e.target as HTMLElement;
+      if (el.dataset.f === 'max') {
+        const tg = listOf(k)[+el.closest<HTMLElement>('.trow')!.dataset.row!];
+        if (tg.max) delete tg.max;
+        else {
+          tg.max = true;
+          tg.rate = 1;
+        }
+        renderSelected(k);
+        planChanged({ fit: true });
+        return;
+      }
       if (el.dataset.f !== 'del') return;
       listOf(k).splice(+el.closest<HTMLElement>('.trow')!.dataset.row!, 1);
       renderSelected(k);
@@ -88,4 +101,17 @@ export function bindPickers(): void {
       planChanged({ fit: true });
     });
   }
+}
+
+/** Result of the "max" targets under their row: computed rate and what limits it. */
+export function renderMaxInfo(): void {
+  const info = ctx.maxInfo;
+  const hasExternal = state.external.some((e) => e.rate > 0);
+  document.querySelectorAll<HTMLElement>('#targets [data-maxinfo]').forEach((el) => {
+    const id = el.dataset.maxinfo!;
+    const r = info?.[id];
+    if (!r) el.textContent = '';
+    else if (!hasExternal || !r.limit) el.textContent = t('maxNoLimit');
+    else el.textContent = t('maxResult', fmt(r.rate) + unit(id), ITEMS[r.limit]?.n ?? r.limit);
+  });
 }

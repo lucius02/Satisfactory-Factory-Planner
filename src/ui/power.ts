@@ -1,7 +1,7 @@
 /** Power page: list of generators (type, fuel, MW or count) and page switching. */
 import { $, ctx } from '../app/context';
 import { planChanged, refreshAll } from '../app/controller';
-import { GENERATORS, genFuel, type GenId } from '../data/generators';
+import { GENERATORS, genExact, genFuel, type GenId } from '../data/generators';
 import { itemName } from '../data/items';
 import { t } from '../i18n';
 import { state, switchPage } from '../state/store';
@@ -14,17 +14,17 @@ export function renderGens(): void {
       .map((g, i) => {
         const G = GENERATORS[g.gen];
         const f = genFuel(g.gen, g.fuel);
-        const exact = g.mode === 'mw' ? g.value / G.mw : g.value;
+        const exact = genExact(g);
         return `<div class="mb-2 rounded-lg border border-line bg-panel2/50 p-2" data-gen="${i}">
           <div class="mb-1.5 grid grid-cols-[1fr_28px] gap-1.5">
             <select data-f="gen">${Object.values(GENERATORS).map((x) => `<option value="${x.id}"${x.id === g.gen ? ' selected' : ''}>${esc(x.n)} · ${fmt(x.mw)} MW</option>`).join('')}</select>
             <button class="x-btn" data-f="del" aria-label="✕">✕</button></div>
-          <div class="grid grid-cols-[1fr_70px_74px] gap-1.5">
+          <div class="grid grid-cols-[1fr_70px_92px] gap-1.5">
             <select data-f="fuel">${G.fuels.map((x) => `<option value="${x.item}"${x.item === f.item ? ' selected' : ''}>${esc(itemName(x.item))}</option>`).join('')}</select>
             <input type="number" data-f="value" min="0" step="any" value="${g.value}">
-            <select data-f="mode"><option value="count"${g.mode === 'count' ? ' selected' : ''}>${t('genCount')}</option><option value="mw"${g.mode === 'mw' ? ' selected' : ''}>MW</option></select>
+            <select data-f="mode"><option value="count"${g.mode === 'count' ? ' selected' : ''}>${t('genCount')}</option><option value="mw"${g.mode === 'mw' ? ' selected' : ''}>MW</option><option value="fuel"${g.mode === 'fuel' ? ' selected' : ''}>${t('genFuelMode')}</option></select>
           </div>
-          <p class="note mt-1.5">${fmt(exact * G.mw)} MW · ${fmt(f.rate * exact)}${unit(f.item)} ${esc(itemName(f.item))}${G.water ? ` · ${fmt(G.water * exact)} m³/min Water` : ''}</p>
+          <p class="note mt-1.5">${g.mode !== 'count' ? `${fmt(Math.round(exact * 100) / 100)}× ${esc(G.n)} · ` : ''}${fmt(exact * G.mw)} MW · ${fmt(f.rate * exact)}${unit(f.item)} ${esc(itemName(f.item))}${G.water ? ` · ${fmt(G.water * exact)} m³/min Water` : ''}</p>
         </div>`;
       })
       .join('') || `<p class="note mt-0 mb-2">${t('nothing')}</p>`;
@@ -54,7 +54,7 @@ export function bindPower(): void {
       g.gen = el.value as GenId;
       g.fuel = GENERATORS[g.gen].fuels[0].item;
     } else if (el.dataset.f === 'fuel') g.fuel = el.value;
-    else if (el.dataset.f === 'mode') g.mode = el.value as 'mw' | 'count';
+    else if (el.dataset.f === 'mode') g.mode = el.value as 'mw' | 'count' | 'fuel';
     else if (el.dataset.f === 'value') g.value = Math.max(0, parseFloat(String(el.value).replace(',', '.')) || 0);
     if (full) renderGens();
     planChanged({ fit: full });

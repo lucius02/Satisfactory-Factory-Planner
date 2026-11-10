@@ -157,6 +157,9 @@
   .trow {
     @apply mb-1.5 grid grid-cols-[1fr_78px_28px] items-center gap-1.5;
   }
+  .trow-max {
+    @apply grid-cols-[1fr_auto_64px_28px];
+  }
   .x-btn {
     @apply h-8 cursor-pointer rounded-md border border-transparent bg-transparent text-muted hover:border-line2 hover:text-bad;
   }

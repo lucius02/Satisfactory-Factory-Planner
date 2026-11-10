@@ -1,5 +1,5 @@
 import { BUILDINGS, POWER_EXP } from '../data/buildings';
-import { GENERATORS, genFuel, type GenSpec } from '../data/generators';
+import { GENERATORS, genExact, genFuel, type GenSpec } from '../data/generators';
 import { isFluid, ITEMS } from '../data/items';
 import { beltCap, LOGISTICS, pipeCap } from '../data/logistics';
 import { canSink, SINK_POINTS } from '../data/sinkPoints';
@@ -48,7 +48,7 @@ export function compute(p: PlanInput): Model {
     const G = GENERATORS[spec.gen];
     if (!G || !(spec.value > 0)) return;
     const f = genFuel(spec.gen, spec.fuel);
-    const exact = spec.mode === 'mw' ? spec.value / G.mw : spec.value;
+    const exact = genExact(spec);
     const count = Math.max(1, Math.ceil(exact - 1e-6));
     const inputs = [{ item: f.item, rate: f.rate * exact }];
     if (G.water) inputs.push({ item: 'water', rate: G.water * exact });

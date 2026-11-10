@@ -56,7 +56,7 @@ export function normalize(raw: unknown, base: State = DEFAULT_STATE): State {
   if (!Array.isArray(s.targets)) s.targets = clone(DEFAULT_STATE.targets);
   s.targets = s.targets
     .filter((x) => x && RECIPES[x.item])
-    .map((x) => ({ item: x.item, rate: Math.max(0, Number(x.rate) || 0) }));
+    .map((x) => ({ item: x.item, rate: Math.max(0, Number(x.rate) || 0), ...(x.max ? { max: true } : {}) }));
   // v1 stored recipe indices instead of names
   for (const k in s.rc) {
     const v: unknown = s.rc[k];

@@ -54,6 +54,9 @@ Lettertypes komen uit `@fontsource/*` (gebundeld), zodat de desktop-apps offline
   - `extractors.ts` — miners/extractors (output begrensd door band/pijp), met afmetingen (Miner 6×14, Water Extractor 20×19,5,
     Oil Extractor 8×14, Resource Well Extractor ±6×6). `geomLocal()` tekent ze als gebouwen met merger-manifold;
     externe aanvoer en kernafval blijven een klein markeringsblok.
+  - `maxTargets.ts` — `resolveMax()`: doelen met `max` maken zo veel als de externe aanvoer toelaat (lineair: twee solves,
+    `rate` = verhouding tussen Max-doelen); resultaat in `ctx.maxInfo`, getoond onder het doel. Generatoren: `mode: 'fuel'`
+    = aantal uit brandstof per minuut (`genExact()`).
   - `pumps.ts` — head lift (Plumbing Manual): machine 10 m, Pump Mk1 +20 m, Mk2 +50 m, gassen geen head lift;
     `pumpsFor()` voor vloeistof naar een hogere verdieping (8 m per verdieping), `nearFullPipe()` (Mk2 > 90%: terugstroming).
   - `recipes.ts` — gekozen recept, productiediepte, alt-telling.
@@ -97,6 +100,7 @@ Lettertypes komen uit `@fontsource/*` (gebundeld), zodat de desktop-apps offline
   (tussenpoles), verdiepingshoogte 8 m; een volle pole (`used` = aansluitingen in gebruik) krijgt een hulppole ernaast; getekend in `render/map.ts` (`state.showWires`), resultaat in `ctx.net`.
 - `ui/picker.ts` — productkiezer en externe aanvoer (zoekbalk + checkboxlijst, alfabetisch).
 - `render/map.ts` — SVG in wereldcoördinaten (1 eenheid = 1 meter), pan/zoom via één `matrix()`.
+- `render/icons.ts` — eigen pictogrammen per gebouw (geen game-artwork), `buildingIcon()` midden in elk gebouw; `iconKey()` op naam.
 - `ui/` — zijbalk, tabel, infopaneel, receptenvenster, deelvenster, kaart-events.
 - `app/context.ts` (runtime-state: model, selectie, view, geometrie) en `app/controller.ts` (`recompute()`, `refreshAll()`,
   `planChanged()` / `planNow()`: wijzigingen aan doelen, instellingen en generatoren wachten op de knop "Layout plannen",

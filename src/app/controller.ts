@@ -1,7 +1,8 @@
 /** Glue: recompute the model, geometry and layout, then redraw everything. */
 import { chooseRecipes } from '../calc/optimize';
 import { compute, type PlanInput } from '../calc/solver';
-import { GENERATORS, genFuel } from '../data/generators';
+import { GENERATORS, genExact, genFuel } from '../data/generators';
+import { resolveMax } from '../calc/maxTargets';
 import { applyStaticTexts } from '../i18n';
 import { autoLayout } from '../layout/autoLayout';
 import { geomLocal } from '../layout/geometry';
@@ -12,7 +13,7 @@ import { fitView, renderMap } from '../render/map';
 import { saveState, state } from '../state/store';
 import { renderInfo } from '../ui/info';
 import { isRecModalOpen, renderRecBtn, renderRecList } from '../ui/recipesModal';
-import { renderTargets } from '../ui/picker';
+import { renderMaxInfo, renderTargets } from '../ui/picker';
 import { renderGens, renderPage } from '../ui/power';
 import { renderFloorTabs, renderOverview, syncSettings } from '../ui/sidebar';
 import { renderTable } from '../ui/table';
@@ -28,7 +29,8 @@ export function recompute(opts: RecomputeOpts = {}): void {
   pending = null;
   renderPlanButton();
   ctx.auto = autoRecipes();
-  ctx.model = compute({ ...planInput(), rc: effectiveRc() });
+  const rc = effectiveRc();
+  ctx.model = compute({ ...planInput(rc), rc });
   if (ctx.sel && !ctx.model.byKey[ctx.sel]) ctx.sel = null;
   const geo = { gap: state.gap, perRow: state.perRow, caps: ctx.model.caps, pole: state.pole, daisy: state.daisy, align: state.align, capRows: state.capRows };
   const sidesOf = (g: Group) => {
@@ -95,6 +97,7 @@ export function renderAll(): void {
   renderMap();
   renderOverview();
   renderTable();
+  renderMaxInfo();
   renderInfo();
   renderFloorTabs();
 }
@@ -127,14 +130,19 @@ function autoRecipes(): Record<string, string> {
 export const effectiveRc = (): Record<string, string> => ({ ...ctx.auto, ...state.rc });
 
 /** Solver input for the open page: the factory, or the power plant (generators + optional fuel chain). */
-export function planInput(): PlanInput {
-  if (state.page === 'factory') return { ...state, gens: [] };
+export function planInput(rc: Record<string, string> = state.rc): PlanInput {
+  if (state.page === 'factory') {
+    // "Max" targets: as much as the external supply allows
+    const r = resolveMax({ ...state, rc, gens: [] });
+    ctx.maxInfo = r.info;
+    return r.input;
+  }
+  ctx.maxInfo = null;
   const external: { item: string; rate: number }[] = [];
   if (!state.produceFuel)
     for (const g of state.gens) {
-      const G = GENERATORS[g.gen];
-      if (!G || !(g.value > 0)) continue;
-      const exact = g.mode === 'mw' ? g.value / G.mw : g.value;
+      if (!GENERATORS[g.gen] || !(g.value > 0)) continue;
+      const exact = genExact(g);
       external.push({ item: genFuel(g.gen, g.fuel).item, rate: genFuel(g.gen, g.fuel).rate * exact });
     }
   return { ...state, targets: [], external, gens: state.gens };

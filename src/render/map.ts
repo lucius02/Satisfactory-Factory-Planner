@@ -4,6 +4,7 @@ import { suppliers, type Group } from '../calc/model';
 import { isFluid, itemName } from '../data/items';
 import { t } from '../i18n';
 import { POLE_CONNECTIONS, worldGeom, type Pt, type WorldGeom } from '../layout/geometry';
+import { buildingIcon } from './icons';
 import { ortho, Router, simplify, straighten } from './router';
 import { FLOOR_H, powerNetwork } from '../layout/powerNet';
 import { nearFullPipe, pumpsFor } from '../calc/pumps';
@@ -228,9 +229,14 @@ function drawGroup(g: Group, w: WorldGeom, ghost: boolean): string {
       const bh = Math.abs(c2[1] - c1[1]);
       s += `<rect x="${a[0]}" y="${a[1]}" width="${bw}" height="${bh}" rx=".4" fill="${bd.c}" fill-opacity=".22" stroke="${bd.c}" stroke-width=".25"/>`;
       const fs = Math.min(1.3, (bw - 0.8) / (bd.n.length * 0.6));
-      s += `<text x="${a[0] + bw / 2}" y="${a[1] + bh / 2 - 0.2}" font-size="${fs.toFixed(2)}" text-anchor="middle" fill="#d8d4cc">${esc(bd.n)}</text>`;
+      // pictogram of the building in the upper part, name and clock speed underneath
+      const icon = Math.min(bw * 0.7, bh * 0.42, 9);
+      const showIcon = icon >= 2.2;
+      const textY = showIcon ? a[1] + bh * 0.42 + icon / 2 + fs : a[1] + bh / 2 - 0.2;
+      if (showIcon) s += buildingIcon(bd.n, a[0] + bw / 2, a[1] + bh * 0.42, icon, bd.c);
+      s += `<text x="${a[0] + bw / 2}" y="${textY.toFixed(2)}" font-size="${fs.toFixed(2)}" text-anchor="middle" fill="#d8d4cc">${esc(bd.n)}</text>`;
       if (g.kind === 'machine' || g.kind === 'generator' || g.kind === 'source')
-        s += `<text x="${a[0] + bw / 2}" y="${a[1] + bh / 2 + 1.5}" font-size="${Math.min(1.4, bw / 5).toFixed(2)}" text-anchor="middle" fill="${m.clock < 0.999 ? '#ffb85c' : '#9aa3ad'}" font-family="JetBrains Mono,monospace">${pct(m.clock)}</text>`;
+        s += `<text x="${a[0] + bw / 2}" y="${(textY + 1.7).toFixed(2)}" font-size="${Math.min(1.4, bw / 5).toFixed(2)}" text-anchor="middle" fill="${m.clock < 0.999 ? '#ffb85c' : '#9aa3ad'}" font-family="JetBrains Mono,monospace">${pct(m.clock)}</text>`;
     }
   }
   let title: string;

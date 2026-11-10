@@ -49,6 +49,8 @@ export interface PlanLayout {
 export interface Target {
   item: ItemId;
   rate: number;
+  /** Make as much as the external supply allows; `rate` is then the ratio between max targets. */
+  max?: boolean;
 }
 
 export interface GroupPos {

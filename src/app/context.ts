@@ -12,6 +12,8 @@ export const ctx = {
   auto: {} as Record<string, string>,
   /** Layout fits within the floors / floor size. */
   fits: true,
+  /** Computed rates of the "max" targets (and what limits them). */
+  maxInfo: null as Record<string, { rate: number; limit?: string }> | null,
   /** Automatic entry / exit side per block. */
   sides: {} as Record<string, Sides>,
   /** Belt connections on screen: what runs over them. */
