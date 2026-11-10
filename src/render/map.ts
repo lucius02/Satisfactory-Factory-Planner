@@ -200,7 +200,9 @@ function drawGroup(g: Group, w: WorldGeom, ghost: boolean): string {
     }
   } else {
     for (const p of L.parts) {
-      if (p.t === 'belt') s += parallel(p.pts.map(([u, v]) => T(u, v)), p.n ?? 1, (q) => line(q, col(p.item), p.w, isFluid(p.item)));
+      // a dark casing under every belt / pipe makes crossings readable (the later one runs on top)
+      if (p.t === 'belt')
+        s += parallel(p.pts.map(([u, v]) => T(u, v)), p.n ?? 1, (q) => line(q, '#12151a', p.w + 0.55, false) + line(q, col(p.item), p.w, isFluid(p.item)));
       else if (p.t === 'loop')
         s += `<path d="${P(p.pts.map(([u, v]) => T(u, v)))}" stroke="${col(p.item)}" stroke-width=".35" fill="none" stroke-dasharray=".8 .5" marker-end="url(#arr)"/>`;
     }

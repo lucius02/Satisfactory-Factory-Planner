@@ -37,6 +37,8 @@ export interface BlockOpt {
   spacing?: number;
   /** Pipe distribution for this block (unset = global setting). */
   fluidDist?: FluidDist;
+  /** Rows in pairs facing each other: the upper row is flipped, so all inputs run through the middle. */
+  facing?: boolean;
 }
 
 /** Positions and belt waypoints of one plan (factory or power plant). */

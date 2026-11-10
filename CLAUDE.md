@@ -75,6 +75,9 @@ Lettertypes komen uit `@fontsource/*` (gebundeld), zodat de desktop-apps offline
   Te veel voor één band: standaard parallelle banden in dezelfde rij (`capRows` = extra rijen; balancers altijd rijen).
   Per blok (`state.blockOpt[key]`): invoerkant links/midden/rechts (`side`), machines per rij, extra ruimte (`spacing`).
   Midden: elke rij wordt vanuit het midden naar buiten gevoed (oneven aantal: punt bij de middelste machine, één 3-weg splitter/merger); bij meerdere rijen loopt de trunk door een gang van 1 foundation.
+  `facing` (blokinstelling): rijen in paren tegenover elkaar — de bovenste rij van elk paar wordt verticaal omgeklapt (parts,
+  machines en taps), zodat alle invoer door het midden loopt en de uitvoer aan de buitenkant. Banden/pijpen in blokken hebben een
+  donkere rand (kruisingen leesbaar). `perRow` is een vrij getal (0 = onbeperkt).
   `align` (standaard aan) zet elke machine midden op hele foundations, maar alleen als dat niet meer ruimte kost dan `gap`
   (anders strak op `gap` m). Meerdere banden/pijpen naast elkaar: belt-part `n` en `parallel()` in de renderer. Vloeistoffen: `state.fluidDist` / blokinstelling `fluidDist`
   = `manifold`, `loopback` (retourpijp naar het verre eind, wiki-advies tegen klotsen) of `tree` (symmetrische T-junction-boom,

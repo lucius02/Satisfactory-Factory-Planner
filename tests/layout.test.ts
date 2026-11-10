@@ -390,3 +390,25 @@ describe('no belts or pipes through machines', () => {
       }
   }, 30_000);
 });
+
+describe('rows facing each other', () => {
+  it('two rows: the inputs of both run through the middle, outputs on the outside', () => {
+    const m = compute({
+      targets: [], external: [], rc: {}, miner: 1, purity: 1, clockMode: 'even', belt: 2, pipe: 1, reuse: true,
+      surplus: 'output', dist: 'balancer', distOv: {}, balSmooth: false, gens: [{ gen: 'coal', fuel: 'coal', mode: 'count', value: 12 }],
+    });
+    const g = m.byKey['g:0'];
+    const L = geomLocal(g, { gap: 0, perRow: 6, caps: m.caps, align: true, opt: { facing: true } });
+    expect(L.rows).toBe(2);
+    expect(L.facing).toBe(true);
+    const top = L.machines.slice(0, 6);
+    const bottom = L.machines.slice(6);
+    const midTop = Math.max(...top.map((x) => x.v + x.l));
+    const midBottom = Math.min(...bottom.map((x) => x.v));
+    // every splitter / junction of the inputs (coal, water) lies between the two rows
+    const inputNodes = L.parts.filter((p) => (p.t === 'split' || p.t === 'junc') && (p.item === 'coal' || p.item === 'water'));
+    const inner = inputNodes.filter((p) => 'u' in p && p.u > 8 && p.u < L.U - 8);
+    expect(inner.length).toBeGreaterThan(0);
+    for (const p of inner) if ('v' in p) expect(p.v > midTop - 1e-6 && p.v < midBottom + 1e-6).toBe(true);
+  });
+});

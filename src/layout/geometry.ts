@@ -66,6 +66,8 @@ export interface LocalGeom {
   outSide?: Side;
   /** Main output split per consumer. */
   split?: boolean;
+  /** Rows in facing pairs. */
+  facing?: boolean;
 }
 
 export interface GeoSettings {
@@ -331,13 +333,27 @@ export function geomLocal(g0: Group, s: GeoSettings): LocalGeom {
   /** Per trunk: v → number of belts that branch off there. */
   const tapsIn: Map<number, number>[] = g.inputs.map(() => new Map());
   const tapsOut: Map<number, number>[] = outLanes.map(() => new Map());
-  const tap = (m: Map<number, number>, v: number) => m.set(v, (m.get(v) ?? 0) + 1);
+  // taps are collected per row first: a flipped row moves them along with its parts
+  let rowTaps: { m: Map<number, number>; v: number }[] = [];
+  const tap = (m: Map<number, number>, v: number) => rowTaps.push({ m, v });
+  const commitTaps = (flip: (v: number) => number) => {
+    for (const { m, v } of rowTaps) {
+      const fv = Math.round(flip(v) * 1000) / 1000;
+      m.set(fv, (m.get(fv) ?? 0) + 1);
+    }
+    rowTaps = [];
+  };
+  const facing = !!o.facing && nRows > 1;
   const rowGap = 3;
   const rowH = sumIn + 0.5 + b.l + 0.5 + sumOut;
-  const content = nRows * rowH + (nRows - 1) * rowGap;
+  const gaps = facing ? Math.ceil(nRows / 2) - 1 : nRows - 1;
+  const content = nRows * rowH + gaps * rowGap;
   const V = snapUp(content);
   let top = (V - content) / 2;
   for (let r = 0; r < nRows; r++) {
+    const partStart = parts.length;
+    const machineStart = machines.length;
+    const rowTop = top;
     const cnt = Math.min(pr, n - r * pr);
     const mV = top + sumIn + 0.5;
     const centers: number[] = [];
@@ -462,7 +478,21 @@ export function geomLocal(g0: Group, s: GeoSettings): LocalGeom {
         });
       ob += outBand[j];
     });
-    top = ob + rowGap;
+    // rows facing each other: flip the upper row of each pair, so its inputs sit at the bottom next to
+    // the inputs of the row below (all feeding runs through the middle, outputs on the outside)
+    if (facing && r % 2 === 0 && r + 1 < nRows) {
+      const fl = (v: number) => rowTop + ob - v;
+      for (let i = partStart; i < parts.length; i++) {
+        const p = parts[i];
+        if (p.t === 'belt' || p.t === 'loop') p.pts = p.pts.map(([u, v]) => [u, fl(v)] as Pt);
+        else if (p.t === 'wire') (p.a = [p.a[0], fl(p.a[1])]), (p.b = [p.b[0], fl(p.b[1])]);
+        else p.v = fl(p.v);
+      }
+      for (let i = machineStart; i < machines.length; i++) machines[i].v = fl(machines[i].v + machines[i].l);
+      commitTaps(fl);
+    } else commitTaps((v) => v);
+    // the two rows of a pair touch in the middle (their input bands meet)
+    top = ob + (facing && r % 2 === 0 && r + 1 < nRows ? 0 : rowGap);
   }
 
   // ---- trunks: a splitter / merger wherever two or more belts meet on the trunk
@@ -491,7 +521,7 @@ export function geomLocal(g0: Group, s: GeoSettings): LocalGeom {
   chainPoles(parts);
   const inSides: Record<ItemId, Side> = {};
   g.inputs.forEach((f, k) => (inSides[f.item] = inSideOf(k)));
-  return { U, V, src: false, bld: b, machines, inLanes, outLanes, parts, counts, rows: nRows, inSides, outSide, split: !!split };
+  return { U, V, src: false, bld: b, machines, inLanes, outLanes, parts, counts, rows: nRows, inSides, outSide, split: !!split, facing };
 }
 
 /** The poles of a group are linked in a chain: add those links to `used`. */

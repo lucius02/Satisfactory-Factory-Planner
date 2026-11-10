@@ -61,7 +61,10 @@ function blockSettings(g: Group, outputOnly = false): string {
   const fluid = hasFluidIn
     ? `<div class="field"><label>${t('fluidDistLine')}</label><select data-act="fluidDist">${fd('', esc(t('distDefault', t(state.fluidDist === 'tree' ? 'fdTree' : state.fluidDist === 'loopback' ? 'fdLoopback' : 'fdManifold'))))}${fd('manifold', t('fdManifold'))}${fd('loopback', t('fdLoopback'))}${fd('tree', t('fdTree'))}</select></div>`
     : '';
-  return `${h2('blockH')}${inRows}${fluid}${out}${rows}`;
+  const face = !outputOnly && L && L.rows > 1
+    ? `<label class="check"><input type="checkbox" data-act="facing"${o.facing ? ' checked' : ''}> <span>${t('facing')}</span></label>`
+    : '';
+  return `${h2('blockH')}${inRows}${fluid}${out}${rows}${face}`;
 }
 
 function logistics(g: Group): string {
@@ -222,6 +225,12 @@ export function bindInfo(): void {
       if (s.value) state.rc[g.id] = s.value;
       else delete state.rc[g.id];
       renderRecBtn();
+      recompute();
+    } else if (s.dataset.act === 'facing') {
+      const o = (state.blockOpt[g.key] ??= {});
+      if ((s as unknown as HTMLInputElement).checked) o.facing = true;
+      else delete o.facing;
+      if (!Object.keys(o).length) delete state.blockOpt[g.key];
       recompute();
     } else if (s.dataset.act === 'fluidDist') {
       const o = (state.blockOpt[g.key] ??= {});

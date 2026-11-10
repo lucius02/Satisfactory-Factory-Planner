@@ -125,10 +125,7 @@
               <option value="0">0 m</option><option value="1">1 m</option><option value="2">2 m</option><option value="4">4 m</option>
             </select></div>
           <div class="field"><label for="perRow" data-i="perRow"></label>
-            <select id="perRow" data-setting="perRow" data-num>
-              <option value="4">4</option><option value="6">6</option><option value="8">8</option><option value="10">10</option>
-              <option value="15">15</option><option value="0" data-i="unlimited"></option>
-            </select></div>
+            <input type="number" id="perRow" data-setting="perRow" data-num min="0" step="1" title="0 = onbeperkt / unlimited" /></div>
           <div class="field"><label for="floors" data-i="floorsSet"></label>
             <select id="floors" data-setting="floors" data-num>
               <option value="1" data-i="oneFloor"></option><option value="2">2</option><option value="3">3</option>

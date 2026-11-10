@@ -45,7 +45,7 @@ export function bindSidebar(): void {
       const k = el.dataset.setting as keyof State;
       const s = state as unknown as Record<string, unknown>;
       if (el instanceof HTMLInputElement && el.type === 'checkbox') s[k] = el.checked;
-      else s[k] = 'num' in el.dataset ? Number(el.value) : el.value;
+      else s[k] = 'num' in el.dataset ? Math.max(0, Number(el.value) || 0) : el.value;
       if (k === 'snap') return saveState(state);
       syncSettings();
       // only drawing / behaviour settings apply at once; everything else waits for "Plan layout"
