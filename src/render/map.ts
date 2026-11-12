@@ -3,7 +3,7 @@ import { $, ctx } from '../app/context';
 import { suppliers, type Group } from '../calc/model';
 import { isFluid, itemName } from '../data/items';
 import { t } from '../i18n';
-import { POLE_CONNECTIONS, worldGeom, type Pt, type WorldGeom } from '../layout/geometry';
+import { PAR_STEP, POLE_CONNECTIONS, worldGeom, type Pt, type WorldGeom } from '../layout/geometry';
 import { buildingIcon } from './icons';
 import { ortho, Router, simplify, straighten } from './router';
 import { FLOOR_H, powerNetwork } from '../layout/powerNet';
@@ -115,7 +115,7 @@ function drawPowerNet(cur: number): string {
  */
 function parallel(pts: Pt[], n: number, draw: (pts: Pt[]) => string): string {
   if (n <= 1) return draw(pts);
-  const step = 0.85;
+  const step = PAR_STEP;
   let s = '';
   for (let i = 0; i < n; i++) {
     const d = (i - (n - 1) / 2) * step;

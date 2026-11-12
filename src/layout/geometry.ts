@@ -104,8 +104,10 @@ const BAND_SOLID = SPLIT + 0.5; // one splitter / merger row
 const BAND_FLUID = 3; // pipeline junction row
 const LEVEL = 5; // vertical distance between balancer levels
 const LEVEL_F = 3; // vertical distance between levels of a pipe tree
-const LOOP_F = 1.6; // extra room for a loopback pipe
-const LANE_SIDE = 1.6; // distance between trunk lanes on the side
+const LOOP_F = 2.2; // extra room for a loopback pipe
+const LANE_SIDE = 2.4; // distance between trunk lanes on the side
+/** Distance between parallel belts / pipes of one lane (same as the renderer's `parallel()`). */
+export const PAR_STEP = 1.6;
 
 export function geomLocal(g0: Group, s: GeoSettings): LocalGeom {
   const counts: LogiCount = { splitters: 0, mergers: 0, junctions: 0, poles: 0, wires: 0 };
@@ -204,7 +206,7 @@ export function geomLocal(g0: Group, s: GeoSettings): LocalGeom {
   // tree depth per balanced input: an input with two belts gets a balancer per half (smaller tree)
   const balLevelsOf = (f: { item: ItemId; rate: number }) =>
     balancerCount(beltsFor(f, pr) > 1 ? Math.ceil(pr / 2) : pr).levels;
-  const LANE_STEP = 2.2;
+  const LANE_STEP = 3; // distance between parallel belts / pipes in one band
   const treeLevels = Math.ceil(Math.log2(Math.max(2, pr)));
   const inBand = g.inputs.map((f, k) =>
     isFluid(f.item)
@@ -238,7 +240,20 @@ export function geomLocal(g0: Group, s: GeoSettings): LocalGeom {
   const corridor = nRows > 1 && pr > 1 && anyCenter ? (align ? 8 : 4) : 0;
   const innerU = (pr - 1) * pitch + cellW + corridor;
   // side strips for trunk belts; the same on both sides so the width does not depend on the chosen sides
-  const strip = needsTrunk ? 2 + Math.max(nIn, nOut) * LANE_SIDE : 0;
+  // trunk lanes in the side strip: each lane takes room for its parallel belts (drawn 1.6 m apart)
+  const laneWidth = (f: { item: ItemId; rate: number }) => LANE_SIDE + (lanesFor(f.rate, f.item, s) - 1) * PAR_STEP;
+  const sideOff = (fs: { item: ItemId; rate: number }[]) => {
+    const offs: number[] = [];
+    let acc = 0;
+    for (const f of fs) {
+      offs.push(acc + (laneWidth(f) - LANE_SIDE) / 2);
+      acc += laneWidth(f);
+    }
+    return { offs, total: acc };
+  };
+  const sideIn = sideOff(g.inputs);
+  const sideOut = sideOff(g.outputs);
+  const strip = needsTrunk ? 2 + Math.max(sideIn.total, sideOut.total) : 0;
   const u0 = align ? Math.ceil(strip / 8 - 1e-9) * 8 : strip;
   const U = snapUp(u0 + innerU + strip);
   const uEnd = u0 + innerU;
@@ -272,8 +287,8 @@ export function geomLocal(g0: Group, s: GeoSettings): LocalGeom {
       ? uMid + off
       : needsTrunk
         ? side === 'left'
-          ? u0 - 2 - k * LANE_SIDE
-          : uEnd + 2 + k * LANE_SIDE
+          ? u0 - 2 - (isIn ? sideIn : sideOut).offs[k]
+          : uEnd + 2 + (isIn ? sideIn : sideOut).offs[k]
         : (side === 'left' ? slotC(0) : slotC(pr - 1)) + off + (isIn ? 0 : 0);
 
   const inLanes: Lane[] = g.inputs.map((f, k) => ({

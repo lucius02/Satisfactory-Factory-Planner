@@ -79,7 +79,8 @@ Lettertypes komen uit `@fontsource/*` (gebundeld), zodat de desktop-apps offline
   machines en taps), zodat alle invoer door het midden loopt en de uitvoer aan de buitenkant. Banden/pijpen in blokken hebben een
   donkere rand (kruisingen leesbaar). `perRow` is een vrij getal (0 = onbeperkt).
   `align` (standaard aan) zet elke machine midden op hele foundations, maar alleen als dat niet meer ruimte kost dan `gap`
-  (anders strak op `gap` m). Meerdere banden/pijpen naast elkaar: belt-part `n` en `parallel()` in de renderer. Vloeistoffen: `state.fluidDist` / blokinstelling `fluidDist`
+  (anders strak op `gap` m). Meerdere banden/pijpen naast elkaar: belt-part `n` en `parallel()` in de renderer
+  (`PAR_STEP` 1,6 m; zijstrook groeit mee met het aantal parallelle banden per lijn; band-rijen `LANE_STEP` 3 m). Vloeistoffen: `state.fluidDist` / blokinstelling `fluidDist`
   = `manifold`, `loopback` (retourpijp naar het verre eind, wiki-advies tegen klotsen) of `tree` (symmetrische T-junction-boom,
   `pipeTree()`, vanuit het midden); een echte pipeline-balancer bestaat niet in het spel. Generatoren met vaste brandstof
   volgen `dist` (balancer); bij een balancer bepalen alleen de vaste invoeren het aantal rijen (vloeistof = parallelle pijpen); een balancerrij

@@ -111,7 +111,11 @@ export class Router {
     const cells: number[] = [];
     for (let st = end; st >= 0; st = prev[st]) cells.push(st >> 2);
     cells.reverse();
-    for (const c of cells) this.used[c] = Math.min(3, this.used[c] + 1);
+    for (const c of cells) this.used[c] = Math.min(3, this.used[c] + 2);
+    // neighbouring cells count a little too, so other belts keep some room next to this one
+    for (const c of cells)
+      for (const n of [c - 1, c + 1, c - nx, c + nx])
+        if (n >= 0 && n < this.used.length && this.used[n] < 1) this.used[n] = 1;
     return cells.map((c) => this.center(c % nx, Math.floor(c / nx)));
   }
 }
