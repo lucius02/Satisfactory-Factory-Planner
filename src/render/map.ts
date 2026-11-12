@@ -76,6 +76,16 @@ function routeBelt(router: Router | null, a: Pt, da: Pt, b: Pt, db: Pt, wp: [num
   return straighten(pts);
 }
 
+/** Pipeline pump: circle with "P" (and the number when more than one). */
+function drawPump([x, y]: Pt, n: number, c: string): string {
+  return (
+    `<g pointer-events="none"><circle cx="${x}" cy="${y}" r="1.5" fill="#14202a" stroke="${c}" stroke-width=".3"/>` +
+    `<text x="${x}" y="${y + 0.5}" font-size="1.4" text-anchor="middle" fill="${c}" font-weight="700">P</text>` +
+    (n > 1 ? `<text x="${x + 1.9}" y="${y - 1}" font-size="1.1" fill="${c}">×${n}</text>` : '') +
+    `</g>`
+  );
+}
+
 function drawPole([x, y]: Pt, extra = false): string {
   return `<rect x="${x - 0.4}" y="${y - 0.4}" width=".8" height=".8" fill="${extra ? '#fff1b3' : '#ffd34d'}" stroke="#0d0f12" stroke-width=".15"/><circle cx="${x}" cy="${y}" r="1.6" fill="none" stroke="#ffd34d" stroke-opacity=".35" stroke-width=".15"/>`;
 }
@@ -89,6 +99,7 @@ function drawPowerNet(cur: number): string {
       return { key: g.key, f: w.f, poles: poles.map((p) => w.T(p.u, p.v)), used: poles.map((p) => p.used ?? 0) };
     }),
     POLE_CONNECTIONS[state.pole - 1],
+    state.floorH || FLOOR_H,
   );
   ctx.net = net;
   if (!state.showWires) return '';
@@ -312,9 +323,11 @@ export function renderMap(opts: { fast?: boolean } = {}): void {
         if (w.f === cur) {
           conns.push({ key, item: inp.item, rate, pts: [Lp, [inp0[0] - w.dir[0] * 7, inp0[1] - w.dir[1] * 7], inp0], label: false });
           // a fluid that has to go up needs pumps (head lift: machine 10 m, Pump Mk.1 +20 m, Mk.2 +50 m)
-          const pumps = isFluid(inp.item) && w.f > pw.f ? pumpsFor((w.f - pw.f) * FLOOR_H, inp.item) : null;
+          const pumps = isFluid(inp.item) && w.f > pw.f ? pumpsFor((w.f - pw.f) * (state.floorH || FLOOR_H), inp.item) : null;
           const pumpTxt = pumps && pumps.mk1 ? ` · +${pumps.mk1}× Pump Mk1` : '';
           lifts += lift(Lp, pw.f, true, `${fmt(rate)}${unit(inp.item)}${pumpTxt}`);
+          // pump symbol on the pipe between the lift and the block
+          if (pumps?.mk1) lifts += drawPump([Lp[0] + (inp0[0] - Lp[0]) * 0.5, Lp[1] + (inp0[1] - Lp[1]) * 0.5], pumps.mk1, col(inp.item));
         } else {
           jobs.push({ key, item: inp.item, rate, a: from, da: pw.dir, b: Lp, db: w.dir, pre: [], post: [], label: true });
           lifts += lift(Lp, w.f, false);

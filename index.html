@@ -131,6 +131,8 @@
               <option value="1" data-i="oneFloor"></option><option value="2">2</option><option value="3">3</option>
               <option value="4">4</option><option value="5">5</option><option value="6">6</option>
             </select></div>
+          <div class="field"><label for="floorH" data-i="floorH"></label>
+            <input type="number" id="floorH" data-setting="floorH" data-num min="1" step="1" /></div>
           <label class="check"><input type="checkbox" id="snap" data-setting="snap" /> <span data-i="snap"></span></label>
         </details>
 
@@ -199,6 +201,7 @@
           </div>
           <div class="absolute bottom-3.5 left-[60px] rounded-md border border-line bg-bg/85 px-2.5 py-1.5 text-xs text-muted max-md:hidden" data-i="hint"></div>
           <div id="info" class="info-panel" hidden></div>
+          <div id="legend" class="absolute right-3.5 bottom-3.5 z-[4] max-h-[60%] max-w-[calc(100%-120px)] overflow-auto rounded-[10px] border border-line2 bg-panel/95 px-3 py-2 shadow-[0_10px_30px_rgba(0,0,0,.35)] max-md:hidden"></div>
         </div>
         <div id="tableView" class="flex-1 overflow-auto p-[18px]" hidden></div>
       </main>

@@ -165,7 +165,7 @@ export function renderOverview(): void {
       for (const sp of suppliers(model, i.item)) {
         const fFrom = state.pos[sp.g.key]?.f ?? 0;
         if (fTo <= fFrom) continue;
-        const p = pumpsFor((fTo - fFrom) * FLOOR_H, i.item);
+        const p = pumpsFor((fTo - fFrom) * (state.floorH || FLOOR_H), i.item);
         pumps1 += p.mk1;
         pumps2 += p.mk2;
       }

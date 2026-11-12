@@ -43,9 +43,9 @@ export interface PowerNet {
   length: number;
 }
 
-function closest(a: NetNode, b: NetNode): { pa: Pt; pb: Pt; len: number } {
+function closest(a: NetNode, b: NetNode, floorH: number): { pa: Pt; pb: Pt; len: number } {
   let best = { pa: a.poles[0], pb: b.poles[0], len: Infinity };
-  const dz = Math.abs(a.f - b.f) * FLOOR_H;
+  const dz = Math.abs(a.f - b.f) * floorH;
   for (const pa of a.poles)
     for (const pb of b.poles) {
       const len = Math.hypot(pa[0] - pb[0], pa[1] - pb[1], dz);
@@ -54,7 +54,7 @@ function closest(a: NetNode, b: NetNode): { pa: Pt; pb: Pt; len: number } {
   return best;
 }
 
-export function powerNetwork(nodes: NetNode[], cap = 7): PowerNet {
+export function powerNetwork(nodes: NetNode[], cap = 7, floorH = FLOOR_H): PowerNet {
   const ns = nodes.filter((n) => n.poles.length);
   const edges: NetEdge[] = [];
   const helpers: HelperPole[] = [];
@@ -88,7 +88,7 @@ export function powerNetwork(nodes: NetNode[], cap = 7): PowerNet {
   const relax = (i: number) => {
     for (let j = 0; j < ns.length; j++) {
       if (inTree[j]) continue;
-      const c = closest(ns[i], ns[j]);
+      const c = closest(ns[i], ns[j], floorH);
       if (c.len < best[j].len) best[j] = { len: c.len, from: i, pa: c.pa, pb: c.pb };
     }
   };

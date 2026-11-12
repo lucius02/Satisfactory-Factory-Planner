@@ -105,7 +105,8 @@ Lettertypes komen uit `@fontsource/*` (gebundeld), zodat de desktop-apps offline
 - `ui/picker.ts` — productkiezer en externe aanvoer (zoekbalk + checkboxlijst, alfabetisch).
 - `render/map.ts` — SVG in wereldcoördinaten (1 eenheid = 1 meter), pan/zoom via één `matrix()`.
 - `render/icons.ts` — eigen pictogrammen per gebouw (geen game-artwork), `buildingIcon()` midden in elk gebouw; `iconKey()` op naam.
-- `ui/` — zijbalk, tabel, infopaneel, receptenvenster, deelvenster, kaart-events.
+- `ui/` — zijbalk, tabel, infopaneel, receptenvenster, deelvenster, kaart-events; `ui/legend.ts` = in-/uitklapbare legenda
+  rechtsonder op de kaart (symbolen zoals op de kaart getekend; open/dicht in localStorage `sf-legend-open`).
 - `app/context.ts` (runtime-state: model, selectie, view, geometrie) en `app/controller.ts` (`recompute()`, `refreshAll()`,
   `planChanged()` / `planNow()`: wijzigingen aan doelen, instellingen en generatoren wachten op de knop "Layout plannen",
   tenzij `state.autoPlan`; recepten, blokinstellingen en kaartacties rekenen direct).

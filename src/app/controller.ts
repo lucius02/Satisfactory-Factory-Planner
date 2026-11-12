@@ -4,6 +4,7 @@ import { compute, type PlanInput } from '../calc/solver';
 import { GENERATORS, genExact, genFuel } from '../data/generators';
 import { resolveMax } from '../calc/maxTargets';
 import { applyStaticTexts } from '../i18n';
+import { renderLegend } from '../ui/legend';
 import { autoLayout } from '../layout/autoLayout';
 import { geomLocal } from '../layout/geometry';
 import type { Side } from '../layout/geometry';
@@ -105,6 +106,7 @@ export function renderAll(): void {
 /** Full refresh, e.g. after a language change or loading a share code. */
 export function refreshAll(opts: RecomputeOpts = {}): void {
   applyStaticTexts();
+  renderLegend();
   syncSettings();
   renderTargets();
   renderGens();

@@ -115,6 +115,8 @@ export interface State {
   pole: 1 | 2 | 3;
   /** Draw the power lines between production lines on the map. */
   showWires: boolean;
+  /** Height of one floor in metres (pumps, power lines between floors). */
+  floorH: number;
   /** Layout locked: blocks and belts cannot be moved, rotated or re-laid out. */
   locked: boolean;
   /** Recompute right away after every change (otherwise only with the Plan button). */
@@ -131,6 +133,6 @@ export interface State {
 
 /** Settings that are part of the share code / settings panel. */
 export const SETTING_KEYS = [
-  'miner', 'purity', 'clockMode', 'gap', 'perRow', 'floors', 'belt', 'pipe', 'dist', 'balSmooth', 'fluidDist', 'surplus', 'reuse', 'snap', 'goal', 'layoutMode', 'floorW', 'floorL', 'pole', 'produceFuel', 'showWires', 'daisy', 'align', 'capRows',
+  'miner', 'purity', 'clockMode', 'gap', 'perRow', 'floors', 'belt', 'pipe', 'dist', 'balSmooth', 'fluidDist', 'surplus', 'reuse', 'snap', 'goal', 'layoutMode', 'floorW', 'floorL', 'pole', 'produceFuel', 'showWires', 'floorH', 'daisy', 'align', 'capRows',
 ] as const;
 export type SettingKey = (typeof SETTING_KEYS)[number];
