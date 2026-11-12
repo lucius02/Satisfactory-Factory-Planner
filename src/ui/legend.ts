@@ -14,7 +14,7 @@ const SAMPLES: [TextKey, string][] = [
   ['lgParallel', `<path d="M2 5H32M2 13H32" stroke="${PIPE}" stroke-width="2" stroke-dasharray="5 2.5"/>`],
   ['lgSplitter', `<path d="M2 9H32" stroke="${BELT}" stroke-width="2"/><rect x="10" y="2" width="14" height="14" rx="2" fill="#1a1f25" stroke="${BELT}" stroke-width="1.2"/><text x="17" y="13" font-size="9" text-anchor="middle" fill="${BELT}" font-family="JetBrains Mono,monospace">S</text>`],
   ['lgMerger', `<path d="M2 9H32" stroke="${BELT}" stroke-width="2"/><rect x="10" y="2" width="14" height="14" rx="5" fill="#1a1f25" stroke="${BELT}" stroke-width="1.2"/><text x="17" y="13" font-size="9" text-anchor="middle" fill="${BELT}" font-family="JetBrains Mono,monospace">M</text>`],
-  ['lgJunction', `<path d="M2 9H32" stroke="${PIPE}" stroke-width="2" stroke-dasharray="5 2.5"/><circle cx="17" cy="9" r="5" fill="#14202a" stroke="${PIPE}" stroke-width="1.4"/>`],
+  ['lgJunction', `<path d="M2 9H32" stroke="${PIPE}" stroke-width="2" stroke-dasharray="5 2.5"/><path d="M17 3L23 9L17 15L11 9z" fill="${PIPE}" stroke="#0d0f12" stroke-width=".8"/><path d="M14 9H20M17 6V12" stroke="#0d0f12" stroke-width="1.1"/>`],
   ['lgLoop', `<path d="M3 13H31" stroke="${PIPE}" stroke-width="2" stroke-dasharray="5 2.5"/><path d="M3 13V4H31V13" fill="none" stroke="${PIPE}" stroke-width="1.2" stroke-dasharray="3 2"/>`],
   ['lgArrow', `<path d="M2 9H26" stroke="${BELT}" stroke-width="2"/><path d="M24 4L32 9L24 14z" fill="${BELT}"/>`],
   ['lgHandle', `<path d="M2 9H32" stroke="${BELT}" stroke-width="2"/><circle cx="17" cy="9" r="4.5" fill="#0d0f12" stroke="${BELT}" stroke-width="1.4"/>`],

@@ -510,21 +510,57 @@ export function geomLocal(g0: Group, s: GeoSettings): LocalGeom {
     top = ob + (facing && r % 2 === 0 && r + 1 < nRows ? 0 : rowGap);
   }
 
-  // ---- trunks: a splitter / merger wherever two or more belts meet on the trunk
-  inLanes.forEach((lane, k) => {
-    const vs = [...tapsIn[k].keys()].sort((a, c) => a - c);
-    parts.push({ t: 'belt', pts: [[lane.pu, 0], [lane.pu, vs[vs.length - 1]]], item: lane.item, w: 0.55, n: lane.belts });
-    vs.forEach((v, i) => {
-      if (tapsIn[k].get(v)! + (i < vs.length - 1 ? 1 : 0) >= 2) node('split', lane.pu, v, lane.item);
+  // ---- trunks: a splitter / merger wherever two or more belts meet on the trunk.
+  // Several parallel belts / pipes on a trunk: each serves its own consecutive set of taps, so every
+  // branch clearly starts at one belt and does not cross the others (the inner one ends first on
+  // the way in, the outer one starts first on the way out).
+  const trunk = (lane: Lane, taps: Map<number, number>, isIn: boolean) => {
+    const vs = [...taps.keys()].sort((a, c) => a - c);
+    if (!vs.length) return;
+    const n = Math.max(1, Math.min(lane.belts, vs.length));
+    const nodeAt = (u: number, v: number, i: number, list: number[]) => {
+      if (taps.get(v)! + (isIn ? (i < list.length - 1 ? 1 : 0) : i > 0 ? 1 : 0) >= 2) node(isIn ? 'split' : 'merge', u, v, lane.item);
+    };
+    if (lane.fluid && lane.belts > 1 && vs.length < lane.belts) {
+      // fewer taps than belts: every belt runs to every tap, joined there by a cross pipe / belt with a
+      // junction on each belt, so it is clear that all of them connect
+      const m = lane.belts;
+      const us = Array.from({ length: m }, (_, i) => lane.pu + (i - (m - 1) / 2) * PAR_STEP);
+      for (const u of us) parts.push({ t: 'belt', pts: isIn ? [[u, 0], [u, vs[vs.length - 1]]] : [[u, vs[0]], [u, V]], item: lane.item, w: 0.55 });
+      for (const v of vs) {
+        parts.push({ t: 'belt', pts: [[us[0], v], [us[m - 1], v]], item: lane.item, w: 0.45 });
+        for (const u of us) node(isIn ? 'split' : 'merge', u, v, lane.item);
+      }
+      return;
+    }
+    if (n === 1) {
+      parts.push({ t: 'belt', pts: isIn ? [[lane.pu, 0], [lane.pu, vs[vs.length - 1]]] : [[lane.pu, vs[0]], [lane.pu, V]], item: lane.item, w: 0.55, n: lane.belts });
+      vs.forEach((v, i) => nodeAt(lane.pu, v, i, vs));
+      return;
+    }
+    // machines lie on the side of the block centre; "inner" = the belt closest to them
+    const inward = lane.pu < U / 2 ? 1 : -1;
+    const offs = Array.from({ length: n }, (_, i) => (i - (n - 1) / 2) * PAR_STEP);
+    // order of the belts from inner to outer
+    const order = [...offs].sort((a, c) => (c - a) * inward);
+    const grp = chunks(vs, n);
+    grp.forEach((list, gi) => {
+      // way in: the first taps go to the inner belt; way out: the first taps to the outer belt
+      const d = isIn ? order[gi] : order[n - 1 - gi];
+      const u = lane.pu + d;
+      parts.push({ t: 'belt', pts: isIn ? [[u, 0], [u, list[list.length - 1]]] : [[u, list[0]], [u, V]], item: lane.item, w: 0.55 });
+      // move the branches of these taps onto this belt
+      for (const p of parts) {
+        if (p.t !== 'belt' || p.item !== lane.item || p.n) continue;
+        const ends = [p.pts[0], p.pts[p.pts.length - 1]];
+        if (!ends.some(([pu, pv]) => Math.abs(pu - lane.pu) < 1e-6 && list.some((v) => Math.abs(v - pv) < 1e-3))) continue;
+        p.pts = p.pts.map(([pu, pv]) => (Math.abs(pu - lane.pu) < 1e-6 ? [u, pv] : [pu, pv]) as Pt);
+      }
+      list.forEach((v, i) => nodeAt(u, v, i, list));
     });
-  });
-  outLanes.forEach((lane, j) => {
-    const vs = [...tapsOut[j].keys()].sort((a, c) => a - c);
-    parts.push({ t: 'belt', pts: [[lane.pu, vs[0]], [lane.pu, V]], item: lane.item, w: 0.55, n: lane.belts });
-    vs.forEach((v, i) => {
-      if (tapsOut[j].get(v)! + (i > 0 ? 1 : 0) >= 2) node('merge', lane.pu, v, lane.item);
-    });
-  });
+  };
+  inLanes.forEach((lane, k) => trunk(lane, tapsIn[k], true));
+  outLanes.forEach((lane, j) => trunk(lane, tapsOut[j], false));
   // a balanced split over several rows needs a small balancer instead of a manifold on the trunk
   if (balanced && nRows > 1) {
     const solidIn = inLanes.filter((l) => !l.fluid).length;

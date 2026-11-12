@@ -177,7 +177,9 @@ function route(a: Pt, da: Pt, b: Pt, db: Pt, off: number): Pt[] {
 function drawNode(w: WorldGeom, u: number, v: number, kind: 'split' | 'merge' | 'junc', item: string): string {
   const [x, y] = w.T(u, v);
   const c = col(item);
-  if (kind === 'junc') return `<rect x="${x - 1}" y="${y - 1}" width="2" height="2" rx="1" fill="#14202a" stroke="${c}" stroke-width=".25"/>`;
+  // junction: filled diamond with a dark cross (clearly different from the hollow round drag point)
+  if (kind === 'junc')
+    return `<path d="M${x} ${y - 1.3}L${x + 1.3} ${y}L${x} ${y + 1.3}L${x - 1.3} ${y}z" fill="${c}" stroke="#0d0f12" stroke-width=".2"/><path d="M${x - 0.6} ${y}H${x + 0.6}M${x} ${y - 0.6}V${y + 0.6}" stroke="#0d0f12" stroke-width=".25"/>`;
   const s = 3.4; // 4 m footprint, drawn slightly smaller so neighbours stay apart
   const label = kind === 'split' ? 'S' : 'M';
   return (
