@@ -3,6 +3,8 @@
  * machines, `v` from the input side (0) to the output side (V). Inputs enter at the top and outputs
  * leave at the bottom, each on the left, in the middle or on the right (`inSide` / `outSide`). The result is a list of drawable parts plus logistics counts.
  */
+import { splitPlan, type SplitNode, type SplitPlan } from '../calc/splitPlan';
+import { hybridSplit } from './hybridSplit';
 import { balancerCount, balancerTree, type BNode } from '../calc/balancer';
 import type { Group } from '../calc/model';
 import { isFluid } from '../data/items';
@@ -66,6 +68,8 @@ export interface LocalGeom {
   outSide?: Side;
   /** Main output split per consumer. */
   split?: boolean;
+  /** Main output split with a splitter tree inside the block (one exit per consumer). */
+  tree?: boolean;
   /** Rows in facing pairs. */
   facing?: boolean;
 }
@@ -93,6 +97,10 @@ export interface GeoSettings {
   fluidDist?: FluidDist;
   /** Split the main output over these consumers (one output belt each) instead of merging it. */
   outSplit?: { key: string; rate: number }[];
+  /** Machines per consumer for `outSplit` (in order); otherwise divided by demand with `allocate()`. */
+  outSplitCnt?: number[];
+  /** Consumers (left to right) of the main output: split it inside the block with a splitter tree. */
+  outTree?: { key: string; rate: number }[];
 }
 
 export const snapUp = (x: number): number => Math.ceil(x / 8 - 1e-9) * 8;
@@ -196,10 +204,21 @@ export function geomLocal(g0: Group, s: GeoSettings): LocalGeom {
     nRows === 1 &&
     pr >= s.outSplit.length &&
     g.outputs.length > 0 &&
-    allocate(pr, s.outSplit.map((x) => x.rate)).every((c) => (g.outputs[0].rate * c) / pr <= capOf(g.outputs[0].item) + 1e-6)
+    (s.outSplitCnt ?? allocate(pr, s.outSplit.map((x) => x.rate))).every((c) => (g.outputs[0].rate * c) / pr <= capOf(g.outputs[0].item) + 1e-6)
       ? s.outSplit
       : null;
-  const splitCnt = split ? allocate(pr, split.map((x) => x.rate)) : [];
+  const splitCnt = split ? (s.outSplitCnt && s.outSplitCnt.length === split.length ? s.outSplitCnt : allocate(pr, split.map((x) => x.rate))) : [];
+  // one row, one output: whole machines per consumer, the leftover machines divided with a splitter tree
+  const hyb =
+    !split && s.outTree && s.outTree.length > 1 && nRows === 1 && g.outputs.length === 1 && g.kind === 'machine' && !isFluid(g.outputs[0].item)
+      ? hybridSplit(
+          g.clocks.map((c) => (g.outputs[0].rate * c) / sumClock),
+          s.outTree.map((c) => c.rate),
+          capOf(g.outputs[0].item),
+        )
+      : null;
+  /** Output of machines [a, b) (clock speeds can differ, e.g. the last one at 50 %). */
+  const chunkRate = (a: number, b: number) => (g.outputs[0].rate * g.clocks.slice(a, b).reduce((x, c) => x + c, 0)) / sumClock;
 
   const powered = g.kind === 'machine' || g.kind === 'generator' || g.kind === 'sink' || (g.kind === 'source' && (g.ex?.mw ?? 0) > 0);
   // two belts into one balancer row: each half gets its own (smaller) balancer tree
@@ -255,7 +274,7 @@ export function geomLocal(g0: Group, s: GeoSettings): LocalGeom {
   const sideOut = sideOff(g.outputs);
   const strip = needsTrunk ? 2 + Math.max(sideIn.total, sideOut.total) : 0;
   const u0 = align ? Math.ceil(strip / 8 - 1e-9) * 8 : strip;
-  const U = snapUp(u0 + innerU + strip);
+  let U = snapUp(u0 + innerU + strip);
   const uEnd = u0 + innerU;
   /** Left edge of machine slot i (slots right of the middle shift by the corridor). */
   const slotU = (i: number) => u0 + i * pitch + (corridor && i >= hL ? corridor : 0);
@@ -363,7 +382,7 @@ export function geomLocal(g0: Group, s: GeoSettings): LocalGeom {
   const rowH = sumIn + 0.5 + b.l + 0.5 + sumOut;
   const gaps = facing ? Math.ceil(nRows / 2) - 1 : nRows - 1;
   const content = nRows * rowH + gaps * rowGap;
-  const V = snapUp(content);
+  let V = snapUp(content);
   let top = (V - content) / 2;
   for (let r = 0; r < nRows; r++) {
     const partStart = parts.length;
@@ -445,6 +464,11 @@ export function geomLocal(g0: Group, s: GeoSettings): LocalGeom {
     // ---- outputs (merger manifold towards the port)
     let ob = mV + b.l + 0.5;
     g.outputs.forEach((f, j) => {
+      if (hyb && j === 0) {
+        // drawn after the rows (whole machines per consumer + splitter tree)
+        ob += outBand[j];
+        return;
+      }
       const lane = outLanes[laneOf[j][0]];
       const w = lane.fluid ? 0.6 : 0.55;
       const xs = centers.map((c) => c + outOff(j));
@@ -455,14 +479,17 @@ export function geomLocal(g0: Group, s: GeoSettings): LocalGeom {
         let start = 0;
         const surplus = split.map((c, ri) => {
           const cx = xs.slice(start, start + splitCnt[ri]);
+          const a0 = start;
           start += splitCnt[ri];
           tap(tapsOut[laneOf[0][ri]], v);
+          // the belt starts at the first machine and leaves at the last one: every machine after the first
+          // (also the last, where the belt turns towards the consumer) joins it through a merger
           cx.forEach((x, i) => {
             belt([[x, mV + b.l], [x, v]], f.item, 0.32);
-            if (i < cx.length - 1) node('merge', x, v, f.item);
+            if (i > 0) node('merge', x, v, f.item);
           });
           if (cx.length > 1) belt([[cx[0], v], [cx[cx.length - 1], v]], f.item, w);
-          return (f.rate * splitCnt[ri]) / pr - c.rate;
+          return chunkRate(a0, start) - c.rate;
         });
         const give = surplus.map((x, i) => ({ i, x })).filter((e) => e.x > 1e-6);
         const need = surplus.map((x, i) => ({ i, x: -x })).filter((e) => e.x > 1e-6);
@@ -568,11 +595,247 @@ export function geomLocal(g0: Group, s: GeoSettings): LocalGeom {
     counts.mergers += solidIn * balancerCount(nRows).mergers;
   }
 
+  let tree = false;
+  const main = outLanes[0];
+  const STEP = 6; // m between end belts of a splitter tree
+  const LV = 6; // m between splitter levels
+  /** Lay out a split plan: leaves STEP apart, children ordered by consumer; returns the drawing helpers. */
+  const layoutPlan = (plan: SplitPlan) => {
+    const first = (nd: SplitNode): number => (nd.children ? Math.min(...nd.children.map(first)) : nd.loop ? 99 : nd.to!);
+    const sortT = (nd: SplitNode): SplitNode => (nd.children ? { ...nd, children: nd.children.map(sortT).sort((a, c) => first(a) - first(c)) } : nd);
+    interface TP { n: SplitNode; x: number; d: number; kids: TP[] }
+    let leafN = 0;
+    let depth = 0;
+    const place = (nd: SplitNode, d: number): TP => {
+      depth = Math.max(depth, d);
+      if (!nd.children) return { n: nd, x: leafN++ * STEP, d, kids: [] };
+      const kids = nd.children.map((c) => place(c, d + 1));
+      return { n: nd, x: kids.reduce((a, k2) => a + k2.x, 0) / kids.length, d, kids };
+    };
+    const tp = place(sortT(plan.root), 0);
+    return { tp, depth, width: (leafN - 1) * STEP };
+  };
+
+  // ---- whole machines per consumer, the leftover machines through a splitter tree.
+  // The tree hangs under the leftover machines, between the groups; its end belts arrive on the level of the
+  // merger lines and join the exit merger of their consumer from the free side (a merger takes 3 inputs:
+  // the line of machines, the last machine and the part from the tree).
+  if (hyb && s.outTree && main) {
+    tree = true;
+    const cons = s.outTree;
+    const item = main.item;
+    const xs = machines.map((m) => m.u + m.w / 2 + outOff(0));
+    const mBottom = machines[0].v + b.l;
+    const k = cons.length;
+    const lx = xs.slice(hyb.left.from, hyb.left.to);
+    const lx0 = lx.length ? lx[Math.floor((lx.length - 1) / 2)] : 0;
+    // exits of the groups next to the leftover machines bound the room for the tree
+    const exitOf = (c: number) => {
+      const ch = hyb.chunks[c];
+      if (ch.to <= ch.from) return null;
+      return c < k - 1 ? xs[ch.to - 1] : xs[ch.from];
+    };
+    const exL = hyb.chunks.slice(0, k - 1).map((_, c) => exitOf(c)).filter((x): x is number => x != null);
+    const leftBound = exL.length ? Math.max(...exL) : -Infinity;
+    const rightBound = exitOf(k - 1) ?? Infinity;
+    const lay = hyb.plan ? layoutPlan(hyb.plan) : null;
+    const nLeaves = lay ? Math.round(lay.width / STEP) + 1 : 1;
+    const room = Math.min(lx0 - leftBound, rightBound - lx0) - 2;
+    // squeeze the tree between the groups when needed (at least 2.5 m between end belts)
+    const step = lay && nLeaves > 1 ? Math.min(STEP, Math.max(2.5, (2 * room) / (nLeaves - 1))) : STEP;
+    const scale = step / STEP;
+    const depth = lay?.depth ?? 0;
+    const loopM = hyb.plan?.loop ? mBottom + 1.5 : mBottom;
+    const rootV = loopM + 2;
+    const vRow = lay ? rootV + depth * LV + 3 : mBottom + 1 + BAND_SOLID / 2;
+    /** Level where the end belts of the tree end (parts for one consumer are joined there first). */
+    const vJ = vRow - 2.5;
+    let maxX = Math.max(...xs);
+    /** Parts of the tree per consumer: x on the row level. */
+    const joins: { c: number; x: number }[] = [];
+    // leftover machines: merged into one belt that goes down into the root splitter
+    if (lx.length) {
+      const vL = mBottom + 1;
+      lx.forEach((x) => belt([[x, mBottom], [x, lx.length > 1 ? vL : rootV]], item, 0.32));
+      if (lx.length > 1) {
+        belt([[lx[0], vL], [lx[lx.length - 1], vL]], item, 0.55);
+        lx.forEach((x, q) => {
+          if (q !== 0 && q !== lx.length - 1) node('merge', x, vL, item);
+          else if (x === lx0) node('merge', x, vL, item);
+        });
+        if (!lay) belt([[lx0, vL], [lx0, vRow]], item, 0.55);
+        else belt([[lx0, vL], [lx0, rootV]], item, 0.55);
+      } else if (!lay) belt([[lx0, mBottom], [lx0, vRow]], item, 0.55);
+      if (lay && hyb.plan) {
+        const x0 = lx0 - lay.tp.x * scale;
+        const X = (x: number) => x0 + x * scale;
+        if (hyb.plan.loop) node('merge', lx0, loopM, item);
+        let loopIdx = 0;
+        const draw = (pp: typeof lay.tp) => {
+          const v = rootV + pp.d * LV;
+          if (!pp.kids.length) {
+            if (pp.n.loop) {
+              const lu = X(lay.width) + 1.5 + loopIdx++ * 0.6;
+              parts.push({ t: 'loop', pts: [[X(pp.x), v], [X(pp.x), vJ], [lu, vJ], [lu, loopM], [lx0, loopM]], item });
+              maxX = Math.max(maxX, lu);
+            } else joins.push({ c: hyb.planTo[pp.n.to!], x: X(pp.x) });
+            return;
+          }
+          node('split', X(pp.x), v, item);
+          for (const kd of pp.kids) {
+            const kv = kd.kids.length ? rootV + kd.d * LV : vJ;
+            belt([[X(pp.x), v], [X(pp.x), v + LV / 2], [X(kd.x), v + LV / 2], [X(kd.x), kv]], item, 0.45);
+            draw(kd);
+          }
+        };
+        draw(lay.tp);
+        // end belts of one consumer: joined with one merger (3 inputs) right under the tree, then one belt down
+        const byC = new Map<number, number[]>();
+        for (const q of joins) byC.set(q.c, [...(byC.get(q.c) ?? []), q.x]);
+        joins.length = 0;
+        for (const [c, ls] of byC) {
+          ls.sort((a, b2) => a - b2);
+          let mx = ls[0];
+          if (ls.length === 2 || ls.length === 3) {
+            mx = ls.length === 3 ? ls[1] : (ls[0] + ls[1]) / 2;
+            belt([[ls[0], vJ], [ls[ls.length - 1], vJ]], item, 0.45);
+            node('merge', mx, vJ, item);
+          } else if (ls.length > 3) {
+            // more parts: a row of mergers, leaving at the middle
+            mx = ls[Math.floor((ls.length - 1) / 2)];
+            belt([[ls[0], vJ], [ls[ls.length - 1], vJ]], item, 0.45);
+            ls.forEach((x, q) => {
+              if (q !== 0 && q !== ls.length - 1) node('merge', x, vJ, item);
+            });
+          }
+          belt([[mx, vJ], [mx, vRow]], item, 0.45);
+          joins.push({ c, x: mx });
+        }
+      } else joins.push({ c: hyb.planTo[0], x: lx0 });
+    }
+    // every consumer: its machines on one merger line, the parts from the tree join at the exit
+    const exits: Lane[] = [];
+    cons.forEach((c, ci) => {
+      const ch = hyb.chunks[ci];
+      const cx = xs.slice(ch.from, ch.to);
+      const toRight = ci < k - 1;
+      const js = joins.filter((q) => q.c === ci).map((q) => q.x);
+      cx.forEach((x) => belt([[x, mBottom], [x, vRow]], item, 0.32));
+      let ex: number;
+      if (cx.length) {
+        ex = toRight ? cx[cx.length - 1] : cx[0];
+        if (cx.length > 1) belt([[cx[0], vRow], [cx[cx.length - 1], vRow]], item, 0.55);
+        // a merger at every machine after the first of the line, also at the exit
+        cx.forEach((x, q) => {
+          const isStart = toRight ? q === 0 : q === cx.length - 1;
+          if (!isStart || (cx.length === 1 && js.length)) node('merge', x, vRow, item);
+        });
+      } else {
+        if (!js.length) return;
+        ex = toRight ? Math.min(...js) : Math.max(...js);
+      }
+      if (js.length) {
+        // tree parts come in from the side of the leftover machines; nearer parts join the farther one
+        const far = js.reduce((a, q) => (Math.abs(q - ex) > Math.abs(a - ex) ? q : a), js[0]);
+        if (Math.abs(far - ex) > 1e-6) belt([[far, vRow], [ex, vRow]], item, 0.55);
+        for (const q of js) if (Math.abs(q - far) > 1e-6 && Math.abs(q - ex) > 1e-6) node('merge', q, vRow, item);
+        if (!cx.length && js.length > 1) node('merge', ex, vRow, item);
+      }
+      exits.push({ item, pu: ex, fluid: false, belts: 1, to: c.key });
+    });
+    const newV = snapUp(Math.max(V, vRow + 3));
+    for (const l of exits) belt([[l.pu, vRow], [l.pu, newV]], item, 0.55);
+    if (maxX + 3 > U) U = snapUp(maxX + 3);
+    outLanes.splice(0, 1, ...exits);
+    V = newV;
+  }
+
+  // ---- splitter tree under the block: the merged main output is divided exactly over its consumers
+  const treePlan =
+    !tree && !split && s.outTree && s.outTree.length > 1 && main && !main.fluid && main.belts === 1 && !main.to
+      ? splitPlan(s.outTree.map((c) => c.rate))
+      : null;
+  if (treePlan && s.outTree) {
+    tree = true;
+    const cons = s.outTree;
+    const first = (n: SplitNode): number => (n.children ? Math.min(...n.children.map(first)) : n.loop ? 99 : n.to!);
+    const sortT = (n: SplitNode): SplitNode => (n.children ? { ...n, children: n.children.map(sortT).sort((a, c) => first(a) - first(c)) } : n);
+    const root = sortT(treePlan.root);
+    interface TP { n: SplitNode; x: number; d: number; kids: TP[] }
+    let leafN = 0;
+    let depth = 0;
+    const place = (n: SplitNode, d: number): TP => {
+      depth = Math.max(depth, d);
+      if (!n.children) return { n, x: leafN++ * STEP, d, kids: [] };
+      const kids = n.children.map((c) => place(c, d + 1));
+      return { n, x: kids.reduce((a, k) => a + k.x, 0) / kids.length, d, kids };
+    };
+    const tp = place(root, 0);
+    const width = (leafN - 1) * STEP;
+    // centred under the output belt, inside the block (wider block when needed)
+    if (width + 6 > U) U = snapUp(width + 6);
+    const x0 = Math.min(Math.max(3, main.pu - tp.x), U - 3 - width);
+    const X = (x: number) => x0 + x;
+    const top = V + 1;
+    const loopM = treePlan.loop ? top + 1.5 : top;
+    const rootV = loopM + 2.5;
+    const leafV = rootV + depth * LV;
+    const busV = leafV + 4;
+    const newV = snapUp(busV + 3);
+    // belt from the old block edge to the root splitter
+    belt([[main.pu, V], [main.pu, top], [X(tp.x), top], [X(tp.x), rootV]], main.item, 0.55);
+    if (treePlan.loop) node('merge', X(tp.x), loopM, main.item);
+    const leaves: TP[] = [];
+    let loopIdx = 0;
+    const draw = (p: TP) => {
+      const v = rootV + p.d * LV;
+      if (!p.kids.length) {
+        leaves.push(p);
+        return;
+      }
+      node('split', X(p.x), v, main.item);
+      for (const k of p.kids) {
+        const kv = k.kids.length ? rootV + k.d * LV : leafV;
+        belt([[X(p.x), v], [X(p.x), v + LV / 2], [X(k.x), v + LV / 2], [X(k.x), kv]], main.item, 0.45);
+        draw(k);
+      }
+    };
+    draw(tp);
+    const exits: Lane[] = [];
+    const byCons = new Map<number, number[]>();
+    for (const l of leaves) {
+      if (l.n.loop) {
+        // unused part goes back to the merger in front of the root splitter
+        const lu = X(width) + 2 + loopIdx++ * 0.6;
+        parts.push({ t: 'loop', pts: [[X(l.x), leafV], [X(l.x), busV], [lu, busV], [lu, loopM], [X(tp.x), loopM]], item: main.item });
+        continue;
+      }
+      byCons.set(l.n.to!, [...(byCons.get(l.n.to!) ?? []), X(l.x)]);
+    }
+    cons.forEach((c, i) => {
+      const xs = (byCons.get(i) ?? []).sort((a, b2) => a - b2);
+      if (!xs.length) return;
+      // one belt per consumer: starts at its first end belt, the others join through mergers
+      xs.forEach((x, q) => {
+        belt([[x, leafV], [x, busV]], main.item, 0.4);
+        if (q > 0) node('merge', x, busV, main.item);
+      });
+      const ex = xs[xs.length - 1];
+      if (xs.length > 1) belt([[xs[0], busV], [ex, busV]], main.item, 0.55);
+      belt([[ex, busV], [ex, newV]], main.item, 0.55);
+      exits.push({ item: main.item, pu: ex, fluid: false, belts: 1, to: c.key });
+    });
+    // the other outputs (byproducts) continue to the new block edge
+    for (const l of outLanes.slice(1)) belt([[l.pu, V], [l.pu, newV]], l.item, 0.55);
+    outLanes.splice(0, 1, ...exits);
+    V = newV;
+  }
+
   if (counts.poles) counts.wires = machines.length + counts.poles - 1;
   chainPoles(parts);
   const inSides: Record<ItemId, Side> = {};
   g.inputs.forEach((f, k) => (inSides[f.item] = inSideOf(k)));
-  return { U, V, src: false, bld: b, machines, inLanes, outLanes, parts, counts, rows: nRows, inSides, outSide, split: !!split, facing };
+  return { U, V, src: false, bld: b, machines, inLanes, outLanes, parts, counts, rows: nRows, inSides, outSide, split: !!split, tree, facing };
 }
 
 /** The poles of a group are linked in a chain: add those links to `used`. */
@@ -644,6 +907,43 @@ function drawBalancer(
 }
 
 /** Divide `n` machines over consumers by demand (largest remainder, at least one each). */
+/**
+ * Exact split of a row of machines over consumers: consecutive machines per consumer whose output
+ * adds up to exactly what that consumer takes (tries every order of the consumers). Null when none.
+ */
+export function exactSplit(
+  clocks: number[],
+  rate: number,
+  consumers: { key: string; rate: number }[],
+  /** Only try this order of the consumers (e.g. left to right on the map). */
+  only?: number[],
+): { order: number[]; counts: number[] } | null {
+  const n = clocks.length;
+  const k = consumers.length;
+  if (k < 2 || k > 6 || n < k) return null;
+  const sum = clocks.reduce((a, c) => a + c, 0) || 1;
+  const per = clocks.map((c) => (rate * c) / sum);
+  const tol = Math.max(1e-6, rate * 1e-6);
+  const perms = (xs: number[]): number[][] => (xs.length <= 1 ? [xs] : xs.flatMap((x, i) => perms([...xs.slice(0, i), ...xs.slice(i + 1)]).map((p) => [x, ...p])));
+  for (const order of only ? [only] : perms([...Array(k).keys()])) {
+    const counts: number[] = [];
+    let i = 0;
+    let ok = true;
+    for (const ci of order) {
+      let acc = 0;
+      let c = 0;
+      while (i < n && acc < consumers[ci].rate - tol) (acc += per[i++]), c++;
+      if (!c || Math.abs(acc - consumers[ci].rate) > tol) {
+        ok = false;
+        break;
+      }
+      counts.push(c);
+    }
+    if (ok && i === n) return { order, counts };
+  }
+  return null;
+}
+
 export function allocate(n: number, rates: number[]): number[] {
   const tot = rates.reduce((a, b) => a + b, 0) || 1;
   const raw = rates.map((r) => (r / tot) * n);

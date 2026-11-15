@@ -49,7 +49,8 @@ function blockSettings(g: Group, outputOnly = false): string {
         .join('');
   const out = g.outputs.length
     ? `<div class="field"><label>${t('outSide')}</label>${sel('outSide', o.outSide, L?.outSide)}</div>
-      <label class="check"><input type="checkbox" data-act="outSplit"${o.outSplit ? ' checked' : ''}> <span>${t('outSplit')}</span></label>
+      <label class="check"><input type="checkbox" data-act="outSplit"${L?.split ? ' checked' : ''}> <span>${t('outSplit')}</span></label>
+      ${L?.split && o.outSplit === undefined ? `<p class="note mt-0">${t('outSplitAuto')}</p>` : ''}
       ${o.outSplit && !L?.split ? `<p class="note mt-0">${t(nCons < 2 ? 'outSplitFew' : 'outSplitNote')}</p>` : ''}`
     : '';
   const rows = outputOnly
@@ -250,8 +251,8 @@ export function bindInfo(): void {
         else delete o.inSides[item];
         if (!Object.keys(o.inSides).length) delete o.inSides;
       } else if (s.dataset.act === 'outSplit') {
-        if ((s as unknown as HTMLInputElement).checked) o.outSplit = true;
-        else delete o.outSplit;
+        // explicit on / off (off also switches the automatic split off)
+        o.outSplit = (s as unknown as HTMLInputElement).checked;
       } else if (s.dataset.act === 'outSide') {
         const k = s.dataset.act as 'side' | 'outSide';
         if (s.value) o[k] = s.value as 'left' | 'center' | 'right';

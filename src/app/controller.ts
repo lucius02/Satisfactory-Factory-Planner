@@ -6,7 +6,7 @@ import { resolveMax } from '../calc/maxTargets';
 import { applyStaticTexts } from '../i18n';
 import { renderLegend } from '../ui/legend';
 import { autoLayout } from '../layout/autoLayout';
-import { geomLocal } from '../layout/geometry';
+import { exactSplit, geomLocal } from '../layout/geometry';
 import type { Side } from '../layout/geometry';
 import { autoSides, consumersOf } from '../layout/sides';
 import type { Group } from '../calc/model';
@@ -42,10 +42,31 @@ export function recompute(opts: RecomputeOpts = {}): void {
       const sd = o?.inSides?.[i.item] ?? o?.side ?? auto?.in[i.item];
       if (sd) inSides[i.item] = sd;
     }
-    return { inSides, outSide: o?.outSide ?? auto?.out, outSplit: o?.outSplit ? consumersOf(ctx.model, g) : undefined };
+    if (o?.outSplit === false) return { inSides, outSide: o?.outSide ?? auto?.out };
+    const cons = consumersOf(ctx.model, g);
+    if (o?.outSplit) return { inSides, outSide: o?.outSide ?? auto?.out, outSplit: cons };
+    // automatic: split when whole machines add up exactly to what each consumer takes
+    // preferably in the order of the consumers on the map (left to right), so the belts do not cross;
+    // the row may be mirrored for that (e.g. the machine at 50 % at the other end)
+    if (g.kind !== 'machine' || !g.outputs.length) return { inSides, outSide: o?.outSide ?? auto?.out };
+    const xOf = (k: string) => state.pos[k]?.x ?? Infinity;
+    const pref = cons.map((_, i) => i).sort((a, b) => xOf(cons[a].key) - xOf(cons[b].key));
+    const rate = g.outputs[0].rate;
+    const rev = [...g.clocks].reverse();
+    let ex = exactSplit(g.clocks, rate, cons, pref);
+    let mirror = false;
+    if (!ex && (ex = exactSplit(rev, rate, cons, pref))) mirror = true;
+    ex ??= exactSplit(g.clocks, rate, cons);
+    return ex
+      ? { inSides, outSide: o?.outSide ?? auto?.out, outSplit: ex.order.map((i) => cons[i]), outSplitCnt: ex.counts, mirror }
+      : // otherwise a splitter tree under the block (consumers left to right)
+        { inSides, outSide: o?.outSide ?? auto?.out, outTree: pref.map((i) => cons[i]) };
   };
-  const build = (g: Group) =>
-    geomLocal(g, { ...geo, opt: state.blockOpt[g.key], fluidDist: state.blockOpt[g.key]?.fluidDist ?? state.fluidDist, ...sidesOf(g) });
+  const build = (g: Group) => {
+    const sd = sidesOf(g);
+    const gg = 'mirror' in sd && sd.mirror ? { ...g, clocks: [...g.clocks].reverse() } : g;
+    return geomLocal(gg, { ...geo, opt: state.blockOpt[g.key], fluidDist: state.blockOpt[g.key]?.fluidDist ?? state.fluidDist, ...sd });
+  };
   ctx.local = {};
   for (const g of ctx.model.groups) ctx.local[g.key] = build(g);
   ctx.fits = autoLayout(

@@ -28,6 +28,7 @@ export interface BlockOpt {
   /** Entry side per input item (overrides `side`). */
   inSides?: Record<string, 'left' | 'center' | 'right'>;
   /** Split the main output: one belt per consumer instead of one merged belt. */
+  /** Own output belt per consumer; unset = automatic (when whole machines add up exactly), false = never. */
   outSplit?: boolean;
   /** Where the output belts leave: left, middle or right (unset = automatic). */
   outSide?: 'left' | 'center' | 'right';

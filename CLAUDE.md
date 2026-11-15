@@ -59,6 +59,8 @@ Lettertypes komen uit `@fontsource/*` (gebundeld), zodat de desktop-apps offline
     = aantal uit brandstof per minuut (`genExact()`).
   - `pumps.ts` — head lift (Plumbing Manual): machine 10 m, Pump Mk1 +20 m, Mk2 +50 m, gassen geen head lift;
     `pumpsFor()` voor vloeistof naar een hogere verdieping (8 m per verdieping), `nearFullPipe()` (Mk2 > 90%: terugstroming).
+  - `splitPlan.ts` — `splitPlan(rates)`: exacte verdeling van één band over afnemers met 1:2/1:3-splitters (+ loopback) en mergers;
+    getoond als tekening (`ui/splitDiagram.ts`) in de bandinfo (klik op een band); vloeistoffen krijgen alleen een junction (verdelen zich vanzelf). `ui/takers.ts` = afnemers per uitvoer en als S-markering op de kaart waar een uitvoer naar meerdere blokken gaat.
   - `recipes.ts` — gekozen recept, productiediepte, alt-telling.
   - `optimize.ts` — `chooseRecipes()`: kiest per product automatisch het beste recept uit de ontgrendelde recepten
     (`state.unlocked`; standaardrecepten altijd beschikbaar), doel `raw`/`power`/`machines`. Handmatige keuzes (`state.rc`) blijven vast.
@@ -67,7 +69,10 @@ Lettertypes komen uit `@fontsource/*` (gebundeld), zodat de desktop-apps offline
   (`inSides` per invoeritem / `outSide`; blokinstelling `inSides`/`side`/`outSide`, anders automatisch via `layout/sides.ts`
   uit de posities van leveranciers/afnemers per item, in `ctx.sides`; breedte hangt niet af van de kant). Een balancer in één rij
   wordt altijd recht boven het midden gevoed. `outSplit` (blokinstelling): hoofduitvoer per afnemer een eigen band
-  (machines verdeeld met `allocate()`, verschil via splitter→merger); `WorldGeom.outFor(item, afnemer)` geeft het uitgangspunt.
+  (machines verdeeld met `allocate()`, verschil via splitter→merger). Niet ingesteld = automatisch aan als hele machines precies
+  uitkomen (`exactSplit()`, in de volgorde van de afnemers op de kaart; de rij wordt zo nodig gespiegeld), `false` = nooit. Komt het niet precies uit (één rij, één uitvoer): `layout/hybridSplit.ts` geeft elke afnemer zoveel hele machines als past en verdeelt
+  de overgebleven machines met een splitterboom (`splitPlan()`) over de resten, elk via een merger op de eigen band. Anders (meerdere rijen) krijgt het blok onderin een splitterboom (`outTree`, `splitPlan()`, extra
+  foundations) met per afnemer een eigen uitgang (`L.tree`); `WorldGeom.outFor(item, afnemer)` geeft het uitgangspunt.
   Uitvoerkant en splitsen werken bij elk blok met uitvoer, ook grondstofblokken (`consumersOf()` gebruikt de eerste uitvoer). Meerdere rijen
   (max. per rij door instelling én bandcapaciteit), manifold (splitters in serie) of balancerboom, mergers aan de uitvoerkant.
   Eén rij met één band per stroom: invoer direct boven de eerste machine, uitvoer onder de laatste, geen zijstroken;

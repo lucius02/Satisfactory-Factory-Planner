@@ -9,6 +9,9 @@ import { t } from '../i18n';
 import { beltFor, col, esc, fmt, unit } from '../util/format';
 import { renderInfo, rotateSelected } from './info';
 import { groupTitle } from './labels';
+import { splitPlan } from '../calc/splitPlan';
+import { splitDiagram } from './splitDiagram';
+import { takersOf } from './takers';
 
 type Drag =
   | { mode: 'belt'; key: string; sx: number; sy: number; moved: boolean }
@@ -187,8 +190,32 @@ function showBeltTip(key: string, x: number, y: number): void {
   el.innerHTML = `<b><span class="dot" style="background:${col(c.item)}"></span>${esc(itemName(c.item))}</b>
     <div class="font-mono">${fmt(c.rate)}${unit(c.item)} · ${beltFor(c.rate, c.item)}</div>
     <div class="text-xs text-muted">${esc(name(from))} → ${esc(name(to))}</div>
+    ${splitHelp(from, c.item)}
     ${isFluid(c.item) && nearFullPipe(c.rate / Math.max(1, Math.ceil(c.rate / ctx.model.caps.pipe - 1e-6)), ctx.model.caps.pipe) ? `<div class="mt-1 max-w-60 text-xs text-accent2">⚠ ${esc(t('pipeFull'))}</div>` : ''}`;
   stage.append(el);
+  // keep the popup inside the map (the split plan can make it tall)
+  const top = Math.max(4, Math.min(y - r.top + 12, r.height - el.offsetHeight - 4));
+  el.style.top = `${top}px`;
+  el.style.left = `${Math.max(4, Math.min(x - r.left + 12, r.width - el.offsetWidth - 4))}px`;
+}
+
+/** How to divide the output of a block over its consumers with splitters and mergers. */
+function splitHelp(from: string, item: string): string {
+  if (ctx.local[from]?.split || ctx.local[from]?.tree) return '';
+  const takers = takersOf(from, item);
+  if (takers.length < 2) return '';
+  if (isFluid(item))
+    return `<div class="mt-2 border-t border-line2 pt-1.5 text-xs font-semibold">${t('splitH', fmt(takers.reduce((a, x) => a + x.rate, 0)) + unit(item), takers.map((x) => fmt(x.rate)).join(' + '))}</div><div class="max-w-72 text-xs text-muted">${t('splitFluid')}</div>`;
+  const total = takers.reduce((s, x) => s + x.rate, 0);
+  const plan = splitPlan(takers.map((x) => x.rate));
+  const u = unit(item);
+  const head = `<div class="mt-2 border-t border-line2 pt-1.5 text-xs font-semibold">${t('splitH', fmt(total) + u, takers.map((x) => fmt(x.rate)).join(' + '))}</div>`;
+  if (!plan) return `${head}<div class="max-w-72 text-xs text-muted">${t('splitOverflow')}</div>`;
+  const short = (n: string) => (n.length > 14 ? n.slice(0, 13) + '…' : n);
+  return `${head}
+    <div class="text-xs text-muted">${t('splitCount', plan.splitters, plan.mergers)}${plan.loop ? ' · ' + t('splitLoopHint') : ''}</div>
+    ${splitDiagram(plan, takers.map((x) => short(x.name)), col(item), u)}
+    <div class="mt-1 max-w-72 text-[11px] text-muted">${t('splitOverflowAlt')}</div>`;
 }
 
 function hideBeltTip(): void {

@@ -416,6 +416,29 @@ export function renderMap(opts: { fast?: boolean } = {}): void {
     }
   }
 
+  // outputs that go to several blocks: a splitter mark where they part (click a belt for the split plan)
+  const starts = new Map<string, { p: Pt; item: string; n: number; from: string }>();
+  for (const c of conns) {
+    if (!c.pts.length || c.key.includes('*')) continue;
+    const from = c.key.split('>')[0];
+    if (WG[from]?.L.split || WG[from]?.L.tree) continue;
+    const k = `${from}|${c.item}`;
+    const e = starts.get(k);
+    if (e) e.n++;
+    else starts.set(k, { p: c.pts[1] ?? c.pts[0], item: c.item, n: 1, from });
+  }
+  for (const s of starts.values()) {
+    if (s.n < 2) continue;
+    const c = col(s.item);
+    const [x, y] = s.p;
+    if (isFluid(s.item)) {
+      // fluids: one junction where the pipes part
+      handles += `<g pointer-events="none"><path d="M${x} ${y - 1.3}L${x + 1.3} ${y}L${x} ${y + 1.3}L${x - 1.3} ${y}z" fill="${c}" stroke="#0d0f12" stroke-width=".2"/><path d="M${x - 0.6} ${y}H${x + 0.6}M${x} ${y - 0.6}V${y + 0.6}" stroke="#0d0f12" stroke-width=".25"/></g>`;
+      continue;
+    }
+    handles += `<g pointer-events="none"><rect x="${x - 1.2}" y="${y - 1.2}" width="2.4" height="2.4" rx=".35" fill="#1a1f25" stroke="${c}" stroke-width=".25"/><text x="${x}" y="${y + 0.55}" font-size="1.5" text-anchor="middle" fill="${c}">S</text><title>${esc(t('splitMark'))}</title></g>`;
+  }
+
   // end products and loose surplus
   for (const g of model.groups) {
     if (!onCur(g)) continue;
