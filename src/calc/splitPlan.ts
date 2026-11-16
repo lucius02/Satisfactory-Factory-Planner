@@ -99,3 +99,40 @@ function orders(f: number[]): number[][] {
   rec(f, []);
   return out;
 }
+
+/**
+ * Order the children of every splitter so the end belts of one consumer sit next to each other and
+ * loopbacks at an end (last, or also first with `loopEitherSide`): the belts that join per consumer then do not cross other end belts or loops.
+ */
+export function orderTree(root: SplitNode, loopEitherSide = false): SplitNode {
+  const key = (n: SplitNode) => (n.loop ? 99 : n.to!);
+  const cost = (seq: SplitNode[]) => {
+    let c = 0;
+    const seen = new Set<number>();
+    seq.forEach((n, i) => {
+      const k = key(n);
+      if (i === 0 || key(seq[i - 1]) !== k) {
+        if (seen.has(k)) c += 10; // same consumer in two separate runs
+        seen.add(k);
+      }
+      if (n.loop && (loopEitherSide ? i !== 0 && i !== seq.length - 1 : seq.slice(i + 1).some((m) => !m.loop))) c += 5;
+      if (!n.loop) c += seq.slice(i + 1).filter((m) => !m.loop && key(m) < k).length; // consumers left to right
+    });
+    return c;
+  };
+  const perms = <T,>(a: T[]): T[][] => (a.length <= 1 ? [a] : a.flatMap((x, i) => perms([...a.slice(0, i), ...a.slice(i + 1)]).map((p) => [x, ...p])));
+  /** Candidate orderings (leaf sequence + tree) per node, best first, a few per node. */
+  const cands = (n: SplitNode): { seq: SplitNode[]; node: SplitNode }[] => {
+    if (!n.children) return [{ seq: [n], node: n }];
+    const kids = n.children.map(cands);
+    let out: { seq: SplitNode[]; node: SplitNode }[] = [];
+    for (const order of perms(kids.map((_, i) => i))) {
+      let acc: { seq: SplitNode[]; kids: SplitNode[] }[] = [{ seq: [], kids: [] }];
+      for (const i of order) acc = acc.flatMap((a) => kids[i].map((k) => ({ seq: [...a.seq, ...k.seq], kids: [...a.kids, k.node] })));
+      out.push(...acc.map((a) => ({ seq: a.seq, node: { ...n, children: a.kids } })));
+    }
+    out = out.sort((a, b) => cost(a.seq) - cost(b.seq)).slice(0, 6);
+    return out;
+  };
+  return cands(root)[0].node;
+}
