@@ -3,7 +3,7 @@
  * machines, `v` from the input side (0) to the output side (V). Inputs enter at the top and outputs
  * leave at the bottom, each on the left, in the middle or on the right (`inSide` / `outSide`). The result is a list of drawable parts plus logistics counts.
  */
-import { splitPlan, type SplitNode, type SplitPlan } from '../calc/splitPlan';
+import { orderTree, splitPlan, type SplitNode, type SplitPlan } from '../calc/splitPlan';
 import { hybridSplit } from './hybridSplit';
 import { balancerCount, balancerTree, type BNode } from '../calc/balancer';
 import type { Group } from '../calc/model';
@@ -601,8 +601,6 @@ export function geomLocal(g0: Group, s: GeoSettings): LocalGeom {
   const LV = 6; // m between splitter levels
   /** Lay out a split plan: leaves STEP apart, children ordered by consumer; returns the drawing helpers. */
   const layoutPlan = (plan: SplitPlan) => {
-    const first = (nd: SplitNode): number => (nd.children ? Math.min(...nd.children.map(first)) : nd.loop ? 99 : nd.to!);
-    const sortT = (nd: SplitNode): SplitNode => (nd.children ? { ...nd, children: nd.children.map(sortT).sort((a, c) => first(a) - first(c)) } : nd);
     interface TP { n: SplitNode; x: number; d: number; kids: TP[] }
     let leafN = 0;
     let depth = 0;
@@ -612,8 +610,11 @@ export function geomLocal(g0: Group, s: GeoSettings): LocalGeom {
       const kids = nd.children.map((c) => place(c, d + 1));
       return { n: nd, x: kids.reduce((a, k2) => a + k2.x, 0) / kids.length, d, kids };
     };
-    const tp = place(sortT(plan.root), 0);
-    return { tp, depth, width: (leafN - 1) * STEP };
+    const tp = place(orderTree(plan.root, true), 0);
+    const leaves = (q: TP): TP[] => (q.kids.length ? q.kids.flatMap(leaves) : [q]);
+    const lv = leaves(tp);
+    const loopLeft = !!lv[0].n.loop && !lv[lv.length - 1].n.loop;
+    return { tp, depth, width: (leafN - 1) * STEP, loopLeft };
   };
 
   // ---- whole machines per consumer, the leftover machines through a splitter tree.
@@ -640,9 +641,22 @@ export function geomLocal(g0: Group, s: GeoSettings): LocalGeom {
     const rightBound = exitOf(k - 1) ?? Infinity;
     const lay = hyb.plan ? layoutPlan(hyb.plan) : null;
     const nLeaves = lay ? Math.round(lay.width / STEP) + 1 : 1;
-    const room = Math.min(lx0 - leftBound, rightBound - lx0) - 2;
-    // squeeze the tree between the groups when needed (at least 2.5 m between end belts)
-    const step = lay && nLeaves > 1 ? Math.min(STEP, Math.max(2.5, (2 * room) / (nLeaves - 1))) : STEP;
+    // squeeze the tree between the groups when needed (at least 2.5 m between end belts); the root
+    // (above the leftover machines) is not always in the middle of the end belts
+    const stepFor = (room: number, n: number) => (n > 0 ? (room * STEP) / n : Infinity);
+    const step =
+      lay && nLeaves > 1
+        ? Math.min(
+            STEP,
+            Math.max(
+              2.5,
+              Math.min(
+                stepFor(lx0 - leftBound - (lay.loopLeft ? 3.5 : 2), lay.tp.x),
+                stepFor(rightBound - lx0 - 2, lay.width - lay.tp.x),
+              ),
+            ),
+          )
+        : STEP;
     const scale = step / STEP;
     const depth = lay?.depth ?? 0;
     const loopM = hyb.plan?.loop ? mBottom + 1.5 : mBottom;
@@ -675,7 +689,7 @@ export function geomLocal(g0: Group, s: GeoSettings): LocalGeom {
           const v = rootV + pp.d * LV;
           if (!pp.kids.length) {
             if (pp.n.loop) {
-              const lu = X(lay.width) + 1.5 + loopIdx++ * 0.6;
+              const lu = lay.loopLeft ? X(0) - 1.5 - loopIdx++ * 0.6 : X(lay.width) + 1.5 + loopIdx++ * 0.6;
               parts.push({ t: 'loop', pts: [[X(pp.x), v], [X(pp.x), vJ], [lu, vJ], [lu, loopM], [lx0, loopM]], item });
               maxX = Math.max(maxX, lu);
             } else joins.push({ c: hyb.planTo[pp.n.to!], x: X(pp.x) });
@@ -758,9 +772,7 @@ export function geomLocal(g0: Group, s: GeoSettings): LocalGeom {
   if (treePlan && s.outTree) {
     tree = true;
     const cons = s.outTree;
-    const first = (n: SplitNode): number => (n.children ? Math.min(...n.children.map(first)) : n.loop ? 99 : n.to!);
-    const sortT = (n: SplitNode): SplitNode => (n.children ? { ...n, children: n.children.map(sortT).sort((a, c) => first(a) - first(c)) } : n);
-    const root = sortT(treePlan.root);
+    const root = orderTree(treePlan.root);
     interface TP { n: SplitNode; x: number; d: number; kids: TP[] }
     let leafN = 0;
     let depth = 0;

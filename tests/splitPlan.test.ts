@@ -70,3 +70,16 @@ describe('hybridSplit()', () => {
     expect(h.rem.map((x) => Math.round(x))).toEqual([10, 5]);
   });
 });
+
+describe('orderTree', () => {
+  it('keeps the end belts of one consumer together and puts loopbacks at an end', async () => {
+    const { orderTree, splitPlan } = await import('../src/calc/splitPlan');
+    const plan = splitPlan([12, 3])!;
+    const leaves = (n: any): any[] => (n.children ? n.children.flatMap(leaves) : [n]);
+    const seq = leaves(orderTree(plan.root, true)).map((n) => (n.loop ? 'L' : n.to));
+    // each consumer in one run
+    const runs = seq.filter((k, i) => i === 0 || seq[i - 1] !== k);
+    expect(new Set(runs).size).toBe(runs.length);
+    expect(seq[0] === 'L' || seq[seq.length - 1] === 'L' || !seq.includes('L')).toBe(true);
+  });
+});
